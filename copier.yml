@@ -21,6 +21,9 @@ _exclude:
   - "**/dist"
   - "**/playwright-report"
   - "**/test-results"
+  - "**/DerivedData"
+  - "**/*.xcresult"
+  - "**/.local-ios"
   - "**/.DS_Store"
 
 project_name:
@@ -32,3 +35,23 @@ app_title:
   type: str
   help: Human readable application title shown in the browser and the page header
   default: "§§deploy_your_startup.project_name | replace('-', ' ') | title§§"
+
+ios_display_name:
+  type: str
+  help: Name shown under the application icon on iOS
+  default: "§§deploy_your_startup.app_title§§"
+
+ios_bundle_identifier:
+  type: str
+  help: Bundle identifier for the iOS application; it must be unique for your team
+  default: "com.example.§§deploy_your_startup.project_name§§"
+
+web_origin:
+  type: str
+  help: HTTPS origin the iOS shell loads (a CDN or a Cloudflare Tunnel); plain http is only accepted on localhost
+  default: "http://localhost:4173"
+
+app_bound_domain:
+  type: str
+  help: Hostname allowed by WKAppBoundDomains. It is derived from web_origin; change web_origin instead
+  default: "§§deploy_your_startup.web_origin.split('://')[1].split('/')[0].split(':')[0]§§"

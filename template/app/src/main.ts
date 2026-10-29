@@ -1,10 +1,12 @@
 import "@hotwired/turbo";
 import { Application } from "@hotwired/stimulus";
 import { TaskFormController } from "./controllers/task-form-controller.ts";
-import { databaseReady } from "./database.ts";
+import { databaseReady, readDatabaseDiagnostics } from "./database.ts";
+import { describeRuntime, type RuntimeReport } from "../shared/runtime.ts";
 import "./style.css";
 
 const tasksFrame = requireTasksFrame();
+const runtimeStatus = requireRuntimeStatus();
 
 function requireTasksFrame(): HTMLElement {
   const frame = document.querySelector<HTMLElement>("#tasks");
@@ -14,6 +16,18 @@ function requireTasksFrame(): HTMLElement {
   }
 
   return frame;
+}
+
+function requireRuntimeStatus(): HTMLElement {
+  const status = document.querySelector<HTMLElement>(
+    "[data-testid='runtime-status']",
+  );
+
+  if (!status) {
+    throw new Error("The runtime status element is missing from the page.");
+  }
+
+  return status;
 }
 
 const application = Application.start();
@@ -87,6 +101,55 @@ async function startLocalApp(): Promise<void> {
   await registerServiceWorker();
 
   tasksFrame.setAttribute("src", "/local/tasks");
+
+  await reportRuntime();
+}
+
+async function hasOpfs(): Promise<boolean> {
+  if (typeof navigator.storage?.getDirectory !== "function") return false;
+
+  try {
+    await navigator.storage.getDirectory();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Renders what the page and its database worker can actually do. The browser
+ * and the native WebView show the same facts, so neither platform claims a
+ * capability that its runtime does not provide.
+ */
+async function reportRuntime(): Promise<void> {
+  try {
+    const [database, opfs] = await Promise.all([
+      readDatabaseDiagnostics(),
+      hasOpfs(),
+    ]);
+
+    const report: RuntimeReport = {
+      secureContext: window.isSecureContext,
+      crossOriginIsolated: window.crossOriginIsolated,
+      serviceWorkerControlled: navigator.serviceWorker.controller !== null,
+      webLocks: Boolean(navigator.locks),
+      opfs,
+      sqliteVersion:
+        "sqliteVersion" in database ? database.sqliteVersion : null,
+    };
+
+    const description = describeRuntime(report);
+    runtimeStatus.textContent = description.text;
+    runtimeStatus.dataset.runtime = description.available
+      ? "available"
+      : "degraded";
+  } catch (error) {
+    console.error(error);
+    runtimeStatus.textContent = `Runtime unavailable: ${
+      error instanceof Error ? error.message : "unknown error"
+    }`;
+    runtimeStatus.dataset.runtime = "unavailable";
+  }
 }
 
 void startLocalApp().catch((error: unknown) => {
@@ -94,4 +157,6 @@ void startLocalApp().catch((error: unknown) => {
 
   tasksFrame.textContent =
     error instanceof Error ? error.message : "Local startup failed.";
+  runtimeStatus.textContent = "Runtime unavailable: local startup failed.";
+  runtimeStatus.dataset.runtime = "unavailable";
 });

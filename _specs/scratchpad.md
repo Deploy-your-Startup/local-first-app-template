@@ -10,114 +10,139 @@ purpose: read it first, update it last.
 - Slice **0** is complete: investigation and owner decisions **A1–A9** resolved,
   template repository cloned, GitHub access confirmed.
 - Slice **1** is implemented on template branch `slice-1-chrome-task-persistence`
-  (tip `f075d04`) and is open for review as PR #1 against `main`:
+  (tip `5a69456`, which adds the relocated `_specs/`) and is open for review as
+  PR #1 against `main`:
   https://github.com/Deploy-your-Startup/local-first-app-template/pull/1.
-  Local checks and the PR's GitHub Actions run both pass. Not merged.
-- Slice **2** was rolled back. Its previous branch, PR draft and results are
-  historical only; remote PR state has not been reverified.
-- Next slice: **2** — save and reopen one task in iOS WKWebView. Start from
-  Slice 1, not the rolled-back iOS implementation. Do not advance to Slice 3.
+  Not merged.
+- Slice **2 (iOS)** is reimplemented from Slice 1 on branch
+  `slice-2-ios-wkwebview`, stacked on `slice-1-chrome-task-persistence`. The
+  rolled-back attempt and its closed PR #2 are historical only.
+- Next slice after review: **3** — the native Rust greeting. Do not start it
+  before Slice 2 is reviewed/merged.
 - Existing template repository at `projects/tooling/local-first-app-template`:
   own Git root, approved SSH origin, `main` tracking `origin/main`, initial
   commit `5c7afb7`, existing MIT LICENSE preserved. `gh repo view` reports
-  `MAINTAIN`; push and PR creation for slice 2 succeeded. No fork or extra
-  remote exists.
+  `MAINTAIN` and the API reports push/maintain, so branch and PR publication
+  are possible. No fork or extra remote exists.
 - Template code, commits and PRs belong in that repository, not the Factory.
 - Repository registered as tooling in the owner's `projects.yaml` (Factory-side
   registry, not template data).
 
 ## Tooling prerequisites
 
-Use the repository's pinned tooling and recheck availability locally. Slice 1
-needs Node.js, Copier and Chromium for browser checks. Slice 2 will additionally
-need full Xcode and an iOS simulator runtime; no native tooling is required by
-the current Slice 1 checks. Machine-specific installation and selection settings
-are not template data.
+- Template and browser checks: Node.js 24 (this machine runs 23.11 and warns
+  about ESLint engine ranges; all checks still pass), npm, Copier ≥ 9.18.2,
+  Chromium for Playwright.
+- Slice 2 native checks: macOS, Xcode 27.1 with an iOS 27.1 simulator runtime,
+  and `cloudflared` on `PATH`.
+- `DEVELOPER_DIR` must point at the full Xcode for this session
+  (`/Applications/Xcode-27.1.0.app/Contents/Developer`); `xcode-select` points
+  at Command Line Tools. Keep that machine-specific selection out of the
+  template.
+- `cloudflared` is not installed globally here; the validation run used
+  `nix shell nixpkgs#cloudflared -c …` around `./make.sh test_ios` and
+  `_specs/checks.sh`.
+- `gh` is not on `PATH`; it runs through `nix shell nixpkgs#gh -c gh …`.
+- Xcode MCP is configured but requires a human approval in the Xcode UI
+  (`xcrun mcp-server approve` needs sudo). It was not available in this
+  non-interactive run; the Xcode MCP checklist item stays open.
 
 ## Stacked-branch state
 
-- Factory investigation branch: `slice-0-extraction-boundary`, local only; this
-  parent checkout has no origin. No Factory PR is open. Its historical PR body
-  remains in `_specs/pr/slice-0.md`; do not push Factory history to the template.
 - Template repository: `main` at `5c7afb7`.
-  - `slice-1-chrome-task-persistence` → PR #1 to `main` (first slice, so the PR
-    base is the default branch).
-   - Previous `slice-2-ios-offline-webview` work was rolled back; do not use it
-     as the current predecessor. Reimplement Slice 2 from Slice 1.
-   - Do not merge or force-push.
+  - `slice-1-chrome-task-persistence` → PR #1 to `main` (first implementation
+    PR).
+  - `slice-2-ios-wkwebview` → stacked on `slice-1-chrome-task-persistence`.
+  - Closed PR #2 (`slice-2-ios-offline-webview`) is historical; do not reuse it.
+  - Do not merge or force-push.
 
 ## Decisions taken (do not re-litigate)
 
 - Slice 0 is documentation plus checkable assertions; no product code changes.
 - `_specs/checks.sh` asserts the documented traces against the real source and,
-  from slice 1, renders and tests a generated project. Extend it per slice;
-  never replace with a placeholder.
+  from slice 1, renders and tests a generated project. From slice 2 it also
+  runs the rendered project's native build and simulator flow. `CHECKS_FAST=1`
+  runs only structural assertions for `_specs/checks.test.mjs`; it is not
+  evidence for completing a slice.
 - Owner identifiers are described, never copied. `checks.sh` fails on a private
   tailnet host or `/Users/<name>` path in these files.
 - Chrome and iOS WKWebView initially. Shared TypeScript services own task logic
   and SQLite WASM/OPFS/Drizzle persistence on both, with no separate native DB.
 - iOS loads from CDN/Vite; cached PWA-style offline reopening follows an initial
-  online load. No bundled assets, offline first-launch requirement or hosting setup.
+  online load. No bundled assets, offline first-launch requirement or hosting
+  setup.
 - Rust stays native-only permanently for browser-inaccessible capabilities.
   Slice 3 adds only a real web UI → Swift → UniFFI → Rust → UI greeting.
 - One database-owning tab; other tabs show "App already open in another tab".
   Slice 1 already holds the exclusive Web Lock and fails fast; slice 6 owns the
   explicit user-facing state and its tests.
-- The historical iOS attempt used app-bound domains for service workers.
-  Revalidate that configuration in Slice 2; no iOS shell exists in the current
-  baseline. Do not silently widen allowed domains.
-- Stop for an owner decision if WKWebView cannot support the approved path;
-  do not substitute native storage, bundled assets or volatile fallback. The
-  approved path did work, so no decision is pending.
+- WKWebView exposes service workers only with
+  `limitsNavigationsToAppBoundDomains` and a matching `WKAppBoundDomains`
+  hostname. Never widen the allowed domain; derive it from `WEB_ORIGIN`.
 
 ### Slice 1 template layout (keep unless a later slice proves it wrong)
 
 - Copier uses `_subdirectory: template`, `_templates_suffix: ''` and the Factory
   delimiters `§§deploy_your_startup.<var>§§`; verified that binary assets render
-  byte-identical. Answers: `project_name` and a derived `app_title`.
+  byte-identical. Answers: `project_name`, derived `app_title`.
 - `template/app` holds the runnable application, its `tests/integration`
   (node --test over real `node:sqlite`) and `tests/e2e` (Playwright). The
   repository-root `tests/` holds template rendering checks only.
 - Relative imports use explicit `.ts` extensions so Node.js can execute the real
-  service and integration tests without a bundler.
+  service and integration tests without a bundler. `scripts/web-origin.ts` is
+  imported by both a Node test and the simulator harness.
 - SQLite WASM/JS is vendored at `app/public/sqlite/3.54.1/` and loaded by URL, so
   dev and the static build serve the same pinned runtime.
-- No Nix flake yet: the generated project needs only Node 24 + npm. Do not add
-  `path:..` factory inputs to a generated project.
+- No Nix flake: the generated project needs Node 24 + npm, plus Xcode and
+  `cloudflared` for the optional native checks.
 - `./make.sh check` (template repo) renders into `.render-check/generated`
-  (gitignored) and runs the generated project's own checks. Rendering uses
-  `--vcs-ref HEAD`, so uncommitted template changes are not tested; `checks.sh`
-  fails on a dirty template tree for that reason.
+  (gitignored) and runs the generated project's lint, integration, build and
+  Chrome E2E. Rendering uses `--vcs-ref HEAD`, so uncommitted template changes
+  are not tested; `checks.sh` fails on a dirty template tree for that reason.
 - `startup-template.yml` (the CLI capability manifest) is deliberately absent
-  until slice 9 inspects the real `startup bootstrap` custom-template contract.
+  until slice 9 inspects the real `bootstrap` custom-template contract.
 
 ### Slice 2 additions (keep unless a later slice proves them wrong)
 
-- Copier answers now include `ios_bundle_identifier` (default
-  `com.example.<project_name>`) and `web_origin` (default
-  `https://localhost:8443`), rendered into `native/ios/LocalFirstApp/Info.plist`
-  and the UI test.
-- `template/native/ios/` is a committed Xcode project generated once with Ruby
-  `xcodeproj`; it references Hotwire Native 1.3.1 through SPM. The project file is
-  checked in and no generator is required at build time.
-- The shell uses the UIKit scene lifecycle. `AppDelegate` only returns the scene
-  configuration; `SceneDelegate` creates the Hotwire `Navigator`, configures
-  app-bound domains, adds the native "About" button and owns the window.
-- `limitsNavigationsToAppBoundDomains` is **required** for service workers in
-  WKWebView; with it off the page reports "This browser does not support service
-  workers." Keep `WKAppBoundDomains` in sync with the origin.
-- `app/scripts/serve-static-https.mjs` serves `dist` with COOP/COEP and
-  `Service-Worker-Allowed: /`; `/__control/offline` makes the origin unreachable
-  for the relaunch check. `make-dev-cert.sh` creates a throwaway CA/server cert
-  in `app/.local-https/` (gitignored). Never commit certificates.
-- `make.sh build_ios` / `test_ios` are the native commands; `check` includes them.
-  The scripts select the first available iPhone simulator, install the CA with
-  `simctl keychain`, and fail if a stale server already listens on 8443.
-- The simulator UI test asserts `Runtime: all available` on the About page, so
-  isolation, service worker, Web Locks and OPFS are proven in WKWebView.
-- The "offline" check makes the origin unreachable; `simctl` cannot switch off
-  the simulator's host network. Record this limitation rather than claiming
-  airplane-mode coverage.
+- Copier answers add `ios_display_name` (default `app_title`),
+  `ios_bundle_identifier` (default `com.example.<project_name>`),
+  `web_origin` (default `http://localhost:4173`) and `app_bound_domain` (derived
+  from `web_origin`). Verified that a custom `web_origin` recomputes
+  `app_bound_domain`; `render_test.sh` asserts it.
+- `template/native/ios/` holds a committed Xcode project generated once with
+  Ruby `xcodeproj`. Sources: UIKit scene lifecycle, Hotwire Native 1.3.1 through
+  SPM (up-to-next-major), `AppDelegate` enabling app-bound navigation,
+  `SceneDelegate` validating origin/domain, a Hotwire web view controller that
+  adds a native "About" button, and a native About screen.
+- `Info.plist` contains only `$(WEB_ORIGIN)` and `$(APP_BOUND_DOMAIN)`; the
+  project defaults them to `http://localhost:4173` and `localhost`. `make.sh`
+  derives the hostname for every build with `app/scripts/web-origin.ts`, which
+  also rejects non-HTTPS origins except loopback and paths/queries.
+- Native tests are split into `OnlineFlowTests` (load the tunnel origin, create
+  "Buy oat milk", assert `Runtime: all available` + `SQLite 3.54.1 in OPFS`,
+  exercise About + back) and `OfflineRelaunchTests` (after the harness stops the
+  tunnel and verifies the origin unreachable, assert the task and runtime).
+- `app/scripts/ios-simulator.mjs` serves `dist` with `vite preview`, opens a
+  Cloudflare quick tunnel, parses the URL, boots the first available simulator,
+  uninstalls the app, runs the online test, kills the tunnel, polls until the
+  origin is unreachable, then runs the offline test. The transient origin is
+  written to gitignored `app/.local-ios/origin.json`. `--serve` keeps it open
+  for manual Xcode runs.
+- Vite dev/preview set `allowedHosts: [".trycloudflare.com"]`; without it Vite
+  rejects the tunnel Host header with 403 and the tunnel "never answers". This
+  was the first real failure of the slice.
+- Offline reopen needs a Workbox `NavigationRoute` to the precached
+  `index.html` (production only; the dev worker is never offline-tested).
+- `make.sh` exposes `build_ios`/`test_ios`; `check` runs them on macOS with
+  Xcode and prints an explicit skip elsewhere. mise exposes `build:ios` and
+  `test:ios`.
+- The visible footer status line is built from real observations in the page and
+  the database worker (`shared/runtime.ts` + a `database-diagnostics` message).
+  Chrome asserts it via Playwright; the simulator asserts the same text.
+- XCUITest cannot reach the host's loopback control server (connection refused
+  from the simulator), which is why offline is a second xcodebuild invocation
+  after the harness stops the tunnel. The app container survives the second
+  install; verified by the passing offline test.
 
 ## Known gaps carried forward
 
@@ -127,22 +152,28 @@ are not template data.
    the extraction map cannot silently drift.
 2. The source has **no task UI**; the template's form, list and Stimulus
    controller are new code in slice 1.
-3. iOS remote HTTPS loading is now proven in the simulator: service-worker
-   caching, offline relaunch (origin unreachable), worker routing and OPFS
-   persistence. Physical devices are still untested, and app-bound enforcement is
-   only exercised against `localhost`, not a registrable CDN domain.
-4. Rust has **no SQLite** and none is required. The greeting is separate from CRUD.
+3. iOS remote HTTPS loading is proven in the simulator: app-bound domains,
+   secure context, service-worker control/caching, offline relaunch with the
+   origin unreachable, worker routing and OPFS persistence. Physical devices
+   are untested, and app-bound enforcement was exercised against a
+   `trycloudflare.com` hostname, not a registrable CDN domain.
+4. Rust has **no SQLite** and none is required. The greeting is separate from
+   CRUD.
 5. The source has **no LICENSE file**; only `rustsrc` declares MIT. The owner has
    selected MIT, the template remote already has it, and generated projects now
    carry `LICENSE` plus `app/THIRD-PARTY-NOTICES.md`.
-6. Slice 2 documents storage limits in the generated README and proves offline
-   relaunch, but does not yet surface storage-quota or eviction problems in the
-   UI (slices 5–6).
+6. Storage limits are documented in the generated README, but quota/eviction
+   failures are not surfaced in the UI (slices 5–6).
 7. `npm install` warns about ESLint engine ranges because this machine runs
    Node.js 23.11 while the project pins Node.js 24. ESLint and all checks still
    pass; CI uses Node.js 24.
-8. CI is Linux only and runs the render, lint, integration, build and browser
-   checks. The iOS simulator check is local; the PR must not claim CI proved it.
+8. CI is Linux only and runs render, lint, integration, build and browser
+   checks. The iOS simulator check is local; CI cannot and does not prove it.
+9. The Xcode MCP build/run/inspect item remains open because this session could
+   not obtain the Xcode UI approval (the `approve` command needs sudo). Native
+   evidence comes from `xcodebuild`/XCUITest through `./make.sh test_ios`.
+10. "Offline" means the configured origin is unreachable (tunnel stopped and
+    verified), not the simulator's host network being disabled.
 
 ## Run log
 
@@ -195,95 +226,76 @@ are not template data.
 ### 2026-10-29 — slice 1
 
 - Resolved the slice 0 publishing blocker before implementing: `gh repo view`
-  now reports `viewerPermission: MAINTAIN` (was READ) for
+  reported `viewerPermission: MAINTAIN` for
   `Deploy-your-Startup/local-first-app-template`, and
   `git push --dry-run origin main:refs/heads/<probe>` accepted a new ref. No fork
-  and no extra remote were created. `gh` is still not on PATH in this shell; it
-  runs through `nix shell nixpkgs#gh -c gh …`.
+  and no extra remote were created.
 - Built slice 1 in the template repository on `slice-1-chrome-task-persistence`
   (branched from `main` at `5c7afb7`). Copier baseline, parameterised answers,
   task form/list, Hono routes at `/local/tasks`, page relay, database worker,
   Drizzle service, OPFS SAH pool, service/mise commands, render checks and a CI
   workflow.
-- Local results on the **rendered** project (`./make.sh check`, which renders
-  from `HEAD` into `.render-check/generated`):
-  - `./make.sh lint` → pass (prettier, ESLint 10, `tsc` for src, worker and tests)
-  - `./make.sh test` → pass, 6/6 integration tests over real `node:sqlite`
-  - `./make.sh build` → pass (static build, SQLite assets copied to `dist/sqlite/`)
-  - `./make.sh test_e2e` → pass, 4/4 Chrome dev + 4/4 Chrome static
-- `_specs/checks.sh` extended: slice 0 assertions retained; slice 1 adds template
-  structure, a clean-tree guard, Copier answer/exclude assertions, CI-step
-  assertions, render assertions and the full generated-project check. Full run
-  passes end to end.
-- `_specs/checks.test.mjs` → 3/3 pass.
-- Skips (recorded, not passed): native/iOS (slice 2), Rust bridge (slice 3),
-  offline restart and multi-tab state (slices 2, 6), Safari/Firefox.
-- Observation: `npm install` warns about ESLint's Node engine range because this
-  machine runs Node 23.11 while the project pins Node 24; all checks pass anyway.
-- Published and verified: branch pushed (`git push -u origin
-  slice-1-chrome-task-persistence`), draft PR #1 opened with `gh`, then marked
-  ready for review after CI passed. PR body: `_specs/pr/slice-1.md`.
-- GitHub Actions run `40886397089` (Ubuntu, Node.js 24) passed every step:
-  render assertions, generated-project lint, 6/6 integration, static build,
-  4/4 Chrome dev E2E and 4/4 Chrome static E2E. No merge, no force-push.
-- Factory-side files updated but intentionally left uncommitted, like previous
-  slices: `_specs/checks.sh`, `_specs/todo.md`, `_specs/scratchpad.md`,
-  `_specs/pr/slice-1.md`. Template code is committed only in its own repository.
+- Local results on the **rendered** project (`./make.sh check`):
+  - lint → pass; integration 6/6; static build → pass; Chrome dev 4/4 and
+    static 4/4.
+- `_specs/checks.sh` extended; `_specs/checks.test.mjs` 3/3 pass.
+- Published: branch pushed, ready PR #1 opened with `gh`. GitHub Actions run
+  `40886397089` passed render, lint, 6/6 integration, build and 8/8 Chrome E2E.
+- Factory-side files were intentionally left uncommitted in that run; the specs
+  were later moved into the template repository (`5a69456`).
 
-### 2026-10-29 — slice 2 (historical; rolled back)
+### 2026-10-29 — slice 2 (historical; rolled back; superseded)
 
-**Superseded:** the owner rolled this slice back. The following records the
-previous attempt, not current capabilities or validation.
+**Superseded:** the owner rolled this slice back. It used a local HTTPS server
+with a throwaway CA on `localhost:8443` instead of a Cloudflare Tunnel, and its
+branch and PR were deleted/closed. It is not evidence for the current
+implementation. The useful finding (service workers in WKWebView require
+app-bound domains) was revalidated here.
 
-- Re-verified publishing before implementing: `gh repo view` still reports
-  `viewerPermission: MAINTAIN`; `git push --dry-run` accepted the new branch. No
-  fork or extra remote. `gh` still runs via `nix shell nixpkgs#gh -c gh …`.
-- Environment: Xcode 27.1 at `/Applications/Xcode-27.1.0.app` but `xcode-select`
-  points at Command Line Tools; all native commands ran with `DEVELOPER_DIR`.
-  iOS 27.1 runtime and a booted iPhone simulator were available.
-- Built slice 2 on `slice-2-ios-offline-webview` from slice 1's tip `f075d04`.
-  Added the render answers, HTTPS static server and throwaway CA, About page
-  runtime diagnostic, Hotwire Native UIKit shell with scenes, simulator UI test,
-  iOS commands, ADR 002 and docs.
-- Key finding: WKWebView exposes service workers **only** when
-  `limitsNavigationsToAppBoundDomains` is on. With it off, the page renders "This
-  browser does not support service workers." App-bound domains with `localhost`
-  work, so the flag is on by default.
-- Generated project (`./make.sh check` from committed `7d7c76e`):
-  - lint → pass; integration 6/6; build → pass
-  - Chrome dev 4/4 (offline test skipped in dev by design), static 6/6, HTTPS
-    static 6/6
-  - `build_ios` → `** BUILD SUCCEEDED **`
-  - `test_ios` → `** TEST SUCCEEDED **`, 1/1 XCUITest in 27.9 s
-- `_specs/checks.sh` extended with slice 2 structure, app-bound/domain and
-  runtime-diagnostic assertions, native script syntax, leak checks and Xcode
-  detection; full run passes.
-- `node --test _specs/run-loop.test.mjs _specs/checks.test.mjs` → 6/6 pass.
-- Published: branch pushed, ready PR #2 opened with `gh` targeting
-  `slice-1-chrome-task-persistence`. PR body: `_specs/pr/slice-2.md`.
-- GitHub Actions run `40892667531` (Ubuntu, Node.js 24) passed every step:
-  render assertions, generated-project lint, 6/6 integration, static build,
-  4/4 dev + 6/6 static + 6/6 HTTPS Chrome E2E. Native checks stay local.
-- Skips (recorded): physical iOS device, Safari/Firefox, CDN hosting, Rust bridge
-  (slice 3), multi-tab UI state (slice 6). Offline is simulated by making the app
-  origin unreachable, not by disabling the simulator's host network.
-- Factory-side files updated but intentionally left uncommitted, as before:
-  `_specs/checks.sh`, `_specs/todo.md`, `_specs/scratchpad.md`,
-  `_specs/pr/slice-2.md`.
+### 2026-10-29 — slice 2 reimplemented from slice 1
 
-### 2026-10-29 — current baseline after rollback and spec relocation
-
-- Specs now live in the template repository's `_specs/`, not the Factory root.
-- Last completed slice: **Slice 1**, branch `slice-1-chrome-task-persistence`,
-  commit `f075d04`. Next incomplete slice: **Slice 2 (iOS)**.
-- Slice 2's checklist is reset. Its old PR draft and evidence are historical;
-  they do not establish support in the current checkout. No remote PR state was
-  checked or changed during this correction.
-- Active checks must require only Slice 1: render, lint, integration, build,
-  Chrome dev and static E2E. iOS, HTTPS origin, offline reopening and Rust remain
-  future work. Do not advance to Slice 3 based on the previous Slice 2 attempt.
-- Validation after correction: template lint and shell syntax pass;
-  `./make.sh check` passes rendering, generated lint, 6 integration tests,
-  build and 4 dev + 4 static Chrome E2E. Spec regression tests: 5/6 pass;
-  the remaining check stops at the clean-tree guard because `_specs/` is
-  uncommitted. No iOS checks run (rolled back). Node 23 engine warnings remain.
+- Re-verified publishing before implementing: `gh repo view` and the API both
+  report maintain/push on the template repository; no fork or extra remote.
+- Environment: Xcode 27.1 exists but `xcode-select` points at Command Line
+  Tools, so every native command ran with `DEVELOPER_DIR` set. iOS 27.1 runtime
+  and one booted simulator were available. `cloudflared` was used through
+  `nix shell nixpkgs#cloudflared`.
+- Implementation:
+  - Web: visible runtime status (`shared/runtime.ts`, page + database-worker
+    diagnostics), production `NavigationRoute` for offline document loads,
+    `allowedHosts` for the tunnel, integration tests for runtime description and
+    origin parsing, Chrome E2E scenario for the status line.
+  - Native: generated Xcode project with Hotwire Native 1.3.1 SPM, UIKit scene
+    shell, app-bound domain validation, native About screen, two XCUITest
+    classes, `build_ios`/`test_ios`, tunnel harness, ADR 002, README/AGENTS.
+  - Template: four new Copier answers, render assertions (including a custom
+    `web_origin`), neutrality/tunnel/certificate checks, CI comment that native
+    stays local.
+- Iterations worth remembering:
+  1. First tunnel attempt failed with "the tunnel origin never answered": Vite
+     preview rejects foreign Host headers (403). Fixed with
+     `allowedHosts: [".trycloudflare.com"]`.
+  2. First native attempt failed to link (`undefined _main`) because the Ruby
+     generator added file references without a Sources build phase.
+  3. The single-test design using a loopback control endpoint failed
+     (`ECONNREFUSED` from the simulator). Replaced with two xcodebuild
+     invocations; the app container survives the second install.
+- Passing results on the rendered project `demo-app`:
+  - `./make.sh build` → pass
+  - `./make.sh build_ios` → `** BUILD SUCCEEDED **`
+  - `./make.sh test_ios` → `OnlineFlowTests` passed (29.0 s: create task,
+    runtime all available, About + back), tunnel stopped and origin verified
+    unreachable, `OfflineRelaunchTests` passed (12.3 s: saved task visible).
+  - Integration 17/17 (6 task + 5 runtime + 6 origin); Chrome E2E 5/5 dev +
+    5/5 static; template render assertions pass twice (default and custom
+    origin).
+  - `_specs/checks.sh` passed end to end (exit 0), including the native build
+    and both simulator phases. `_specs/checks.test.mjs` + `run-loop.test.mjs`
+    → 6/6.
+  - Fixed during the gate run: example tunnel URLs in fixtures tripped the
+    "no transient tunnel URL" check (now `.example.com`), and two structural
+    greps targeted the rendered file instead of the templated one.
+- Xcode MCP: the workspace-open request is recorded but needs a human approval
+  in Xcode (`xcrun mcp-server approve` requires sudo), so MCP build/run/inspect
+  remains unchecked. CLI Xcode build and simulator tests are the recorded
+  native evidence.

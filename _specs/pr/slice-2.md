@@ -1,119 +1,109 @@
-## Slice 2: save and reopen one task in iOS WKWebView
+# Slice 2 — save and reopen one task in iOS WKWebView
 
-> **Historical draft — rolled back.** Slice 1 (`f075d04`) is the last completed
-> slice. The implementation and test results below describe a previous attempt,
-> not the active checkout. All checked items below are historical, not current
-> completion. Reimplement and revalidate Slice 2 before reusing this draft.
-> The current checklist is [../todo.md](../todo.md). Remote PR state has not
-> been reverified.
+Source plan: [`_specs/local-first-app-template-plan.md`](../local-first-app-template-plan.md).
+Checklist: slice 2 in [`_specs/todo.md`](../todo.md).
 
-Stacked on `slice-1-chrome-task-persistence`. Predecessor: #1. Base branch is
-the slice 1 branch until that PR merges; retarget to `main` afterwards.
+**Slice:** 2 of 10 — *Save and reopen one task in iOS WKWebView using the web
+runtime*.
+**Predecessor:** `slice-1-chrome-task-persistence` (PR #1). This PR targets that
+branch.
+**Status:** draft. All code and checks are in place; one checklist item that
+requires the Xcode MCP approval in the Xcode UI could not be completed in this
+non-interactive session (see below).
 
-Plan, checklist and extraction evidence now live in this repository's `_specs/`.
+## What changed
 
-### Demonstrated flow
-
-Generated Hotwire Native shell → local HTTPS origin serving the static build →
-the same service worker/Hono/database-worker/SQLite WASM/OPFS path as Chrome →
-create a task → terminate the app → make the origin unreachable → relaunch →
-the task is shown from the cached UI and durable OPFS storage → native
-navigation to About and back.
-
-The About page reports the actual WKWebView capabilities. The simulator test
-asserts `Runtime: all available`, which covers cross-origin isolation, service
-worker control, Web Locks and OPFS access.
-
-### What changed
-
-- Copier answers `ios_bundle_identifier` and `web_origin`; display name, bundle
-  identifier, origin and app-bound domains are rendered into the iOS shell.
-- `native/ios/` Hotwire Native shell (UIKit scene lifecycle): configurable HTTPS
-  origin, `WKAppBoundDomains`, native back navigation and an About route.
-- Simulator UI test: online load, create task, terminate, origin offline,
-  relaunch, read the saved task, check runtime capabilities, navigate back.
-- `app/scripts/serve-static-https.mjs` and `make-dev-cert.sh`: a local HTTPS
-  static origin with COOP/COEP and a throwaway CA. No hosting is provisioned and
-  no certificate is committed.
-- Chrome E2E now also runs against the HTTPS static origin and covers offline
-  reload and the About runtime diagnostic.
-- Service commands: `build_ios`, `test_ios`; `check` includes them. `mise` tasks
-  `ios:build` and `ios:test`.
-- Template-owned ADR `docs/architecture/002-ios-webview-runtime.md`; README,
-  AGENTS and render checks updated.
-
-### Test results (local, macOS)
-
-Run from the template repository at `7d7c76e`:
-
-- `./make.sh test` → pass: rendered project contains the native shell, no
-  placeholders, no source branding or personal paths.
-- Generated project `./make.sh check` → pass:
-  - `./make.sh lint` → pass (Prettier, ESLint, three TypeScript projects, shell
-    syntax).
-  - `./make.sh test` → pass, 6/6 integration tests over real `node:sqlite`.
-  - `./make.sh build` → pass.
-  - `./make.sh test_e2e` → pass: 4/4 Chrome dev (About), 6/6 static (including
-    offline reload) and 6/6 HTTPS static.
-  - `./make.sh build_ios` → `** BUILD SUCCEEDED **`.
-  - `./make.sh test_ios` → `** TEST SUCCEEDED **`: 1/1 XCUITest in the iOS 27.1
-    simulator (iPhone) in 27.9 s.
-- Factory `_specs/checks.sh` → pass, including slice 0 traces, render checks and
-  the full generated-project run.
-- `node --test _specs/run-loop.test.mjs _specs/checks.test.mjs` → 6/6 pass.
-- GitHub Actions run `40892667531` (Ubuntu, Node.js 24) passed every step:
-  render assertions, generated-project lint, 6/6 integration, static build and
-  4/4 dev + 6/6 static + 6/6 HTTPS Chrome E2E. Native checks are local because
-  GitHub's Linux runner has no iOS simulator.
-
-Environment: Xcode 27.1 / iOS 27.1 simulator runtime, Node.js 23.11 with npm
-(the project pins Node.js 24), Copier 9.19.1.
-
-### How to validate
-
-```sh
-cd projects/tooling/local-first-app-template   # or a clone
-copier copy --vcs-ref HEAD --data project_name=my-app . /tmp/my-app
-cd /tmp/my-app
-./make.sh setup_local
-./make.sh check
+```
+copier.yml                         + ios_display_name, ios_bundle_identifier,
+                                     web_origin, app_bound_domain
+template/app
+  shared/runtime.ts                runtime facts + status text (new)
+  src/main.ts                      renders the observed runtime status
+  src/database.ts                  database-diagnostics round trip
+  worker/database.ts               reports the opened SQLite version
+  worker/sw.ts                     NavigationRoute to the precached index.html
+  scripts/web-origin.ts            origin/hostname rule (tested)
+  scripts/ios-simulator.mjs        static build + Cloudflare Tunnel + XCUITest
+  vite.config.ts                   allow the tunnel Host header
+  tests/integration/runtime.test.ts, web-origin.test.ts
+  tests/e2e/tasks.spec.ts          status-line scenario
+template/native/ios
+  LocalFirstApp.xcodeproj          committed Xcode project, Hotwire Native 1.3.1
+  LocalFirstApp/                   UIKit scene shell, app-bound domains,
+                                   native About screen, Info.plist
+  LocalFirstAppUITests/            OnlineFlowTests + OfflineRelaunchTests
+template/make.sh, mise.toml        build_ios / test_ios, check includes them
+template/docs/                     ADR 002, updated ADR 001, README, AGENTS
+tests/render_test.sh               native output, answer derivation, tunnel
+                                   URL/certificate neutrality
+.github/workflows/                 native checks documented as local-only
+_specs/*                           checks, todo, scratchpad, this PR body
 ```
 
-`./make.sh check` needs Xcode with an iOS simulator runtime. The iOS scripts
-select the first available iPhone unless `IOS_SIMULATOR_UDID` is set, install the
-throwaway CA into that simulator and start the HTTPS server on port 8443. On a
-machine where `xcode-select` points at Command Line Tools, set `DEVELOPER_DIR`
-to a full Xcode installation.
+### Flow demonstrated
 
-### Skips, gaps and limitations
+1. The Copier answers produce an Xcode project whose `Info.plist` expands
+   `HotwireRootURL` from `$(WEB_ORIGIN)` and `WKAppBoundDomains` from
+   `$(APP_BOUND_DOMAIN)`. `make.sh` derives the hostname from the origin, and
+   the shell refuses to start if they disagree.
+2. `./make.sh test_ios` builds the static app, serves it with COOP/COEP, opens a
+   Cloudflare quick tunnel and starts the app with that origin.
+3. `OnlineFlowTests` loads the web runtime, creates "Buy oat milk", asserts the
+   visible runtime status (`Runtime: all available (SQLite 3.54.1 in OPFS)`,
+   secure context, cross-origin isolation, service worker, Web Locks, OPFS), and
+   exercises native About + back navigation.
+4. The harness stops the tunnel and polls until the origin is unreachable.
+5. `OfflineRelaunchTests` relaunches the app and asserts the saved task appears
+   from the service-worker cache and OPFS — no native database, no bundled
+   assets.
 
-- **Offline method:** the check makes the app origin unreachable. The simulator
-  shares the host network stack and `simctl` has no airplane mode, so the whole
-  host network is not switched off. This is recorded in ADR 002; it proves cached
-  UI and durable storage but not global network loss.
-- **App-bound domains:** WKWebView only exposes service workers to app-bound
-  domains. The flag is on and `localhost` is allowed; a deployed CDN host must be
-  added to `WKAppBoundDomains`. The restriction is not tested against a real
-  registrable domain because hosting is out of scope.
-- **Not tested:** physical iOS devices, device signing, App Store distribution,
-  CDN hosting, Safari, Firefox, and the native Rust bridge (slice 3). CI remains
-  Linux and runs the browser/render checks; the simulator check is local.
-- **Existing warning:** npm reports ESLint engine-range warnings because this
-  machine runs Node.js 23.11 while the project pins Node.js 24. All checks pass.
+## Checks
 
-### Checklist status
+Local results on a rendered project (`.render-check/generated`), macOS 26 with
+Xcode 27.1 / iOS 27.1 simulator and `cloudflared` 2026.10.0:
 
-- [x] Parameterize display name and bundle identifier; build without personal
-      signing identities or hardcoded Xcode paths.
-- [x] Configure a web origin and app-bound domains for Vite/static HTTPS.
-- [x] Prove secure context, service-worker control, database workers, Web Locks
-      and OPFS inside the actual WKWebView configuration.
-- [x] Reuse the same TypeScript services and schema; no native persistence.
-- [x] Simulator UI E2E: load online, create, terminate, origin offline, relaunch,
-      observe the saved task.
-- [x] Exercise native navigation/back behavior.
-- [x] Document origin, caching and storage choices in an ADR; expose native
-      build/simulator commands.
-- [x] No substitution with native SQLite, bundled assets or online-only loading.
+| Check | Command | Result |
+|---|---|---|
+| Template render + neutrality | `./make.sh test` (template repo) | pass |
+| Formatting, ESLint, `tsc` (src/worker/tests/scripts) | `./make.sh lint` | pass |
+| Integration tests (real services/SQLite + runtime/origin logic) | `./make.sh test` | **17/17 pass** |
+| Static build | `./make.sh build` | pass |
+| Chrome E2E, dev + static | `./make.sh test_e2e` | **5/5 + 5/5 pass** |
+| iOS simulator build | `./make.sh build_ios` | `** BUILD SUCCEEDED **` |
+| iOS online flow | `./make.sh test_ios` | **passed** (29.0 s) |
+| iOS offline relaunch (origin verified unreachable) | `./make.sh test_ios` | **passed** (12.3 s) |
+| Spec harness tests | `node --test _specs/checks.test.mjs _specs/run-loop.test.mjs` | **6/6 pass** |
+| Full slice gate | `_specs/checks.sh` | pass end to end |
 
-Not merged. No force-push was used.
+CI stays Linux and runs render, lint, integration, build and Chrome E2E only.
+The simulator result above is local evidence, not CI evidence.
+
+## Skips and gaps
+
+- **Xcode MCP**: opening the generated project through Xcode MCP requires a
+  human approval in the Xcode UI (`xcrun mcp-server approve` needs sudo). The
+  request is recorded but unapproved, so that checklist item is unchecked;
+  native evidence comes from `xcodebuild` and XCUITest.
+- "Offline" is simulated by stopping the tunnel and verifying the origin is
+  unreachable. `simctl` cannot disable the simulator's host network.
+- Physical iOS devices, signing/App Store distribution and a real CDN are not
+  verified. App-bound enforcement was exercised against a `trycloudflare.com`
+  hostname.
+- Chrome offline restart, storage quota/eviction UI and multi-tab messaging stay
+  in later slices.
+
+## How to validate
+
+```sh
+# template repository, on macOS with Xcode and cloudflared
+export DEVELOPER_DIR="/Applications/Xcode-27.1.app/Contents/Developer"  # if needed
+./make.sh test
+./make.sh check
+(cd .render-check/generated && ./make.sh build_ios && ./make.sh test_ios)
+
+# full slice gate, including rendering and both platform checks
+_specs/checks.sh
+```
+
+The tunnel URL is transient, is written to the gitignored
+`app/.local-ios/origin.json`, and is never committed.

@@ -77,4 +77,16 @@ test.describe("local-first tasks", () => {
       await page.evaluate(() => navigator.serviceWorker.controller !== null),
     ).toBe(true);
   });
+
+  test("WHEN the application has started THEN it reports the runtime it actually provides", async ({
+    page,
+  }) => {
+    await openApp(page);
+
+    const runtime = page.getByTestId("runtime-status");
+
+    await expect(runtime).toHaveAttribute("data-runtime", "available");
+    await expect(runtime).toContainText("Runtime: all available");
+    await expect(runtime).toContainText("SQLite 3.54.1 in OPFS");
+  });
 });

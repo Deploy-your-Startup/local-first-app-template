@@ -22,7 +22,13 @@ export default defineConfig(
     },
   },
   {
-    files: ["tests/**/*.ts", "*.config.ts"],
+    files: ["tests/**/*.ts", "scripts/**/*.ts", "*.config.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
+    files: ["scripts/**/*.mjs"],
     languageOptions: {
       globals: globals.node,
     },

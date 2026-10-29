@@ -4,6 +4,7 @@ import {
   DATABASE_LOCK_NAME,
   DATABASE_POOL_NAME,
 } from "../shared/app.ts";
+import { isDatabaseDiagnosticsRequest } from "../shared/runtime.ts";
 import {
   DATABASE_SCHEMA_SQL,
   databaseSchema,
@@ -195,7 +196,29 @@ void openDatabase().catch((error) => {
 worker.addEventListener("message", async (event: MessageEvent<unknown>) => {
   const port = event.ports[0];
 
-  if (!port || !isTaskServiceRequest(event.data)) return;
+  if (!port) return;
+
+  if (isDatabaseDiagnosticsRequest(event.data)) {
+    try {
+      const { version } = await databaseReady;
+      port.postMessage({
+        type: "database-diagnostics",
+        sqliteVersion: version,
+      });
+    } catch (error) {
+      port.postMessage({
+        type: "database-diagnostics",
+        error:
+          error instanceof Error ? error.message : "Database startup failed.",
+      });
+    } finally {
+      port.close();
+    }
+
+    return;
+  }
+
+  if (!isTaskServiceRequest(event.data)) return;
 
   const request = event.data;
 

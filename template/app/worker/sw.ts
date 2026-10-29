@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { precacheAndRoute } from "workbox-precaching";
+import { createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
+import { NavigationRoute, registerRoute } from "workbox-routing";
 import { handleError, handleNotFound } from "./endpoints/errors.ts";
 import { getTasks, postTasks } from "./endpoints/tasks.ts";
 import type { AppEnv } from "./endpoints/types.ts";
@@ -12,6 +13,19 @@ declare const self: ServiceWorkerGlobalScope & {
 };
 
 precacheAndRoute(self.__WB_MANIFEST);
+
+// The native WebView must reopen the cached shell when the origin is
+// unreachable, which requires answering navigation requests from the precache.
+// Local routes and the SQLite runtime are served by the worker itself, so they
+// are not navigation fallbacks. The development worker has no precache and is
+// never offline-tested.
+if (import.meta.env.PROD) {
+  registerRoute(
+    new NavigationRoute(createHandlerBoundToURL("/index.html"), {
+      denylist: [/^\/local\//, /^\/sqlite\//],
+    }),
+  );
+}
 
 const app = new Hono<AppEnv>().basePath("/local");
 
