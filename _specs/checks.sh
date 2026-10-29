@@ -2,18 +2,21 @@
 # Checks for the active vertical slice (see _specs/todo.md).
 #
 # Slice 0 asserted the extraction boundary against the source application.
-# Slice 1 added a Copier template; this file renders a disposable project from
-# the template's committed revision and runs that project's real lint,
-# integration, build and Chrome E2E checks. Slice 2 was rolled back; native,
-# HTTPS-origin and offline checks are not part of the active baseline.
-# Every check below is bound to a real
-# command in an explicit repository path; nothing is a placeholder.
+# Slice 1 added a Copier template that renders a Chrome application saving one
+# local task. Slice 2 adds the iOS WKWebView shell: the rendered project's
+# simulator UI flow loads the web runtime through a Cloudflare Tunnel, saves a
+# task, and reopens it after the origin is made unreachable.
+#
+# Every check below is bound to a real command in an explicit repository path;
+# nothing is a placeholder. CHECKS_FAST=1 runs the structural assertions only
+# (used by _specs/checks.test.mjs); a completed slice still requires the full
+# run, including the rendered project, Chrome E2E and the iOS simulator flow.
 set -euo pipefail
 
 specs_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="$specs_root/$(basename "${BASH_SOURCE[0]}")"
 TEMPLATE="${TEMPLATE_ROOT:-$(cd "$specs_root/.." && pwd)}"
 factory_root="${FACTORY_ROOT:-$(cd "$TEMPLATE/../../.." && pwd)}"
-cd "$specs_root/.."
 
 SOURCE="$factory_root/projects/startups/malleable-mail/app-src"
 APP="$SOURCE/app"
@@ -25,6 +28,33 @@ pass() { printf 'ok   %s\n' "$*"; }
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# --- prerequisites --------------------------------------------------------
+# The gate runs the real native flow, so it needs a full Xcode and cloudflared.
+# Resolve them here instead of relying on the caller's shell, which may select
+# the Command Line Tools or lack cloudflared. Nothing is skipped: if the tools
+# cannot be resolved the run fails with an actionable message.
+if [ "${CHECKS_FAST:-0}" != "1" ]; then
+  if ! have cloudflared && have nix && [ -z "${CHECKS_REEXEC:-}" ]; then
+    export CHECKS_REEXEC=1
+    exec nix shell nixpkgs#cloudflared -c bash "$script_path" "$@"
+  fi
+
+  # `xcode-select` may point at the Command Line Tools, where xcodebuild and
+  # simctl are unavailable. Pick an installed Xcode without hardcoding a
+  # version or a personal path.
+  if [ "$(uname -s)" = "Darwin" ] && ! xcodebuild -version >/dev/null 2>&1; then
+    for candidate in /Applications/Xcode*.app/Contents/Developer; do
+      [ -d "$candidate" ] || continue
+      if DEVELOPER_DIR="$candidate" xcodebuild -version >/dev/null 2>&1; then
+        export DEVELOPER_DIR="$candidate"
+        break
+      fi
+    done
+  fi
+fi
+
+cd "$specs_root/.."
 
 echo "== slice 0: extraction boundary =="
 
@@ -190,50 +220,145 @@ bash -n "$TEMPLATE/make.sh" "$TEMPLATE/template/make.sh" \
 pass "template shell scripts are valid bash"
 
 # --- rendering -----------------------------------------------------------
-have copier || fail "copier is required to render the template"
-"$TEMPLATE/make.sh" lint
-"$TEMPLATE/make.sh" test
-pass "template renders a complete, neutral project"
+if [ "${CHECKS_FAST:-0}" = "1" ]; then
+  echo "CHECKS_FAST: skipping rendering and the generated-project checks"
+else
+  have copier || fail "copier is required to render the template"
+  "$TEMPLATE/make.sh" lint
+  "$TEMPLATE/make.sh" test
+  pass "template renders a complete, neutral project"
 
-# --- the rendered project really works -----------------------------------
-# `make.sh check` renders again, installs dependencies, and runs the generated
-# project's lint, integration tests, static build and Chrome E2E checks.
-# It lives in .render-check/generated.
-have node || fail "node is required to check the generated project"
-"$TEMPLATE/make.sh" check
-pass "generated project passes lint, integration, build and Chrome E2E checks"
+  # --- the rendered project really works ---------------------------------
+  # `make.sh check` renders again, installs dependencies, and runs the generated
+  # project's lint, integration tests, static build and Chrome E2E checks.
+  # It lives in .render-check/generated.
+  have node || fail "node is required to check the generated project"
+  "$TEMPLATE/make.sh" check
+  pass "generated project passes lint, integration, build and Chrome E2E checks"
+fi
 
-# --- no certificates, build output or personal paths are committed ------
-for leaked in \
-  "$TEMPLATE/.render-check"; do
-  if git -C "$TEMPLATE" ls-files --error-unmatch "${leaked#"$TEMPLATE/"}" >/dev/null 2>&1; then
-    fail "generated/development output is committed: ${leaked#"$TEMPLATE/"}"
-  fi
+echo
+echo "== slice 2: save and reopen one task in iOS WKWebView =="
+
+# --- the native shell is part of the template -----------------------------
+IOS="$TEMPLATE/template/native/ios"
+for file in \
+  "$IOS/LocalFirstApp.xcodeproj/project.pbxproj" \
+  "$IOS/LocalFirstApp.xcodeproj/xcshareddata/xcschemes/LocalFirstApp.xcscheme" \
+  "$IOS/LocalFirstApp/Info.plist" \
+  "$IOS/LocalFirstApp/AppDelegate.swift" \
+  "$IOS/LocalFirstApp/SceneDelegate.swift" \
+  "$IOS/LocalFirstApp/AppWebViewController.swift" \
+  "$IOS/LocalFirstApp/AboutViewController.swift" \
+  "$IOS/LocalFirstAppUITests/OnlineFlowTests.swift" \
+  "$IOS/LocalFirstAppUITests/OfflineRelaunchTests.swift" \
+  "$TEMPLATE/template/app/scripts/ios-simulator.mjs" \
+  "$TEMPLATE/template/app/scripts/web-origin.ts" \
+  "$TEMPLATE/template/docs/architecture/002-ios-wkwebview-loading.md"; do
+  [ -s "$file" ] || fail "missing native file: ${file#"$TEMPLATE"/}"
 done
+pass "Hotwire Native shell, simulator UI tests, harness and ADR 002 exist"
+
+# --- origin and app-bound domain stay aligned -----------------------------
+for variable in ios_display_name ios_bundle_identifier web_origin app_bound_domain; do
+  grep -qE "^${variable}:" "$TEMPLATE/copier.yml" ||
+    fail "copier.yml does not declare the '$variable' answer"
+done
+grep -qF '<string>$(WEB_ORIGIN)</string>' "$IOS/LocalFirstApp/Info.plist" ||
+  fail "Info.plist no longer loads the root URL from WEB_ORIGIN"
+grep -qF '<string>$(APP_BOUND_DOMAIN)</string>' "$IOS/LocalFirstApp/Info.plist" ||
+  fail "Info.plist no longer expands WKAppBoundDomains from APP_BOUND_DOMAIN"
+grep -qF "limitsNavigationsToAppBoundDomains = true" "$IOS/LocalFirstApp/AppDelegate.swift" ||
+  fail "the shell no longer enables limitsNavigationsToAppBoundDomains"
+grep -qF "WKAppBoundDomains" "$IOS/LocalFirstApp/SceneDelegate.swift" ||
+  fail "the shell no longer validates the app-bound domain against the origin"
+grep -qF 'APP_BOUND_DOMAIN = "§§deploy_your_startup.app_bound_domain§§";' \
+  "$IOS/LocalFirstApp.xcodeproj/project.pbxproj" ||
+  fail "the Xcode project no longer derives the app-bound domain from the answers"
+pass "the shell derives WEB_ORIGIN and WKAppBoundDomains from one configuration"
+
+# --- the simulator flow is real, not a placeholder ------------------------
+HARNESS="$TEMPLATE/template/app/scripts/ios-simulator.mjs"
+grep -qF "cloudflared" "$HARNESS" ||
+  fail "the simulator harness no longer uses a Cloudflare Tunnel"
+grep -qF "trycloudflare" "$HARNESS" ||
+  fail "the simulator harness no longer parses the tunnel hostname"
+grep -qF "originReachable" "$HARNESS" ||
+  fail "the simulator harness no longer verifies the origin state"
+grep -qF "OnlineFlowTests" "$HARNESS" ||
+  fail "the simulator harness no longer runs the online UI flow"
+grep -qF "OfflineRelaunchTests" "$HARNESS" ||
+  fail "the simulator harness no longer runs the offline relaunch"
+grep -qF "Runtime: all available" "$IOS/LocalFirstAppUITests/OnlineFlowTests.swift" ||
+  fail "the online UI flow no longer checks the WKWebView runtime status"
+grep -qF "SQLite 3.54.1 in OPFS" "$IOS/LocalFirstAppUITests/OnlineFlowTests.swift" ||
+  fail "the online UI flow no longer checks the SQLite runtime in OPFS"
+grep -qF 'Buy oat milk' "$IOS/LocalFirstAppUITests/OfflineRelaunchTests.swift" ||
+  fail "the offline relaunch no longer asserts the saved task"
+grep -qF "No tasks yet." "$IOS/LocalFirstAppUITests/OfflineRelaunchTests.swift" ||
+  fail "the offline relaunch no longer rejects an empty database"
+pass "the simulator tests assert the real runtime, the saved task and the offline relaunch"
+
+# --- no transient remote state in the template ----------------------------
+if git -C "$TEMPLATE" grep -qE 'https://[a-z0-9-]+\.trycloudflare\.com' -- template; then
+  fail "the template contains a transient Cloudflare tunnel URL"
+fi
+if git -C "$TEMPLATE" grep -qiE '(BEGIN (RSA )?PRIVATE KEY|DEVELOPMENT_TEAM = [A-Z0-9])' \
+     -- template/native; then
+  fail "the native template contains a private key or signing team"
+fi
 if git -C "$TEMPLATE" grep -qE '/Users/[A-Za-z0-9._-]+' -- template; then
   fail "template sources contain an absolute personal machine path"
 fi
-if git -C "$TEMPLATE" grep -qiE '(BEGIN (RSA )?PRIVATE KEY|DEVELOPMENT_TEAM)' -- template; then
-  fail "template sources contain a private key or signing team"
-fi
-pass "no certificates, build output, personal paths or signing identities are committed"
+pass "no tunnel URLs, certificates, signing teams or personal paths in the template"
 
-# --- CI scope ------------------------------------------------------------
-grep -qF "test_e2e" "$WORKFLOW" ||
-  fail "CI no longer runs the generated browser checks"
-pass "CI keeps the Linux browser suite"
+# --- the generated project exposes the native commands --------------------
+grep -qE '^build_ios\)' "$TEMPLATE/template/make.sh" ||
+  fail "the generated make.sh does not implement build_ios"
+grep -qE '^test_ios\)' "$TEMPLATE/template/make.sh" ||
+  fail "the generated make.sh does not implement test_ios"
+if grep -qF './make.sh build_ios' "$WORKFLOW"; then
+  fail "CI must not run native checks on Linux"
+fi
+pass "the generated project exposes build_ios/test_ios; CI stays browser-only"
+
+# --- run the native checks (macOS, Xcode, simulator, tunnel) --------------
+if [ "${CHECKS_FAST:-0}" = "1" ]; then
+  echo "CHECKS_FAST: skipping the iOS simulator and Chrome execution checks"
+else
+  [ "$(uname -s)" = "Darwin" ] ||
+    fail "slice 2 requires macOS with Xcode to run the simulator checks"
+  have xcrun || fail "xcrun is required for the iOS simulator checks"
+  have xcodebuild || fail "xcodebuild is required for the iOS simulator checks"
+  xcodebuild -version >/dev/null 2>&1 ||
+    fail "xcodebuild cannot run; install Xcode and select it with xcode-select or DEVELOPER_DIR (the Command Line Tools are not enough)"
+  have cloudflared ||
+    fail "cloudflared is required to serve the simulator origin over HTTPS (install it, or provide nix so the gate can supply it)"
+  xcrun simctl list runtimes 2>/dev/null | grep -q "iOS" ||
+    fail "no iOS simulator runtime is installed"
+
+  GENERATED="$TEMPLATE/.render-check/generated"
+  [ -x "$GENERATED/make.sh" ] ||
+    fail "missing rendered project; run the full checks to render it first"
+  (cd "$GENERATED" && ./make.sh build_ios)
+  pass "generated iOS shell builds for the simulator"
+  (cd "$GENERATED" && ./make.sh test_ios)
+  pass "generated iOS shell saves a task and reopens it after the origin is unreachable"
+fi
 
 echo
 cat <<'EOF'
-skip iOS/native            — slice 2 was rolled back; simulator and device
-                             behavior are not proven in this baseline
-skip Safari/Firefox        — Chrome is the only claimed browser
-skip CDN/HTTPS hosting     — hosting and an HTTPS test origin are not implemented
-skip offline reopening    — deferred to slices 2 and 6
-skip Rust bridge checks    — the "hello from rust" bridge is slice 3
+skip physical iOS device  — the simulator is the tested target; signing and
+                            devices are out of scope
+skip real CDN deployment  — the HTTPS origin is a local Cloudflare Tunnel, not
+                            production hosting
+skip Chrome offline flow  — cached restart in Chrome is covered in slice 6; the
+                            iOS relaunch is proven here
+skip Safari/Firefox       — Chrome is the only claimed browser
+skip Rust bridge checks   — the "hello from rust" bridge is slice 3
 skip multi-tab state tests — the explicit "already open in another tab" UI is
-                             slice 6; the single-owner lock is already enforced
+                            slice 6; the single-owner lock is already enforced
 EOF
 
 echo
-echo "== slice 1 checks passed =="
+echo "== slice 2 checks passed =="

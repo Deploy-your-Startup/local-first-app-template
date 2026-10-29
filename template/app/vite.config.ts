@@ -14,12 +14,17 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     headers: crossOriginIsolationHeaders,
+    // The iOS simulator harness exposes this dev server through a Cloudflare
+    // quick tunnel. Vite rejects unknown Host headers, so allow the tunnel
+    // domain (localhost is always allowed).
+    allowedHosts: [".trycloudflare.com"],
   },
   preview: {
     host: "127.0.0.1",
     port: 4173,
     strictPort: true,
     headers: crossOriginIsolationHeaders,
+    allowedHosts: [".trycloudflare.com"],
   },
   plugins: [
     VitePWA({

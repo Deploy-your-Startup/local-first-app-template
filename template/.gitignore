@@ -3,4 +3,7 @@ dist/
 test-results/
 playwright-report/
 *.local
+.local-ios/
+DerivedData/
+*.xcresult
 .DS_Store

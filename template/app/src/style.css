@@ -98,3 +98,21 @@ body {
 .status {
   font-size: 0.9rem;
 }
+
+.app-footer {
+  margin-top: 2.5rem;
+  border-top: 1px solid rgb(128 128 128 / 35%);
+  padding-top: 1rem;
+}
+
+.runtime {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.runtime[data-runtime="degraded"],
+.runtime[data-runtime="unavailable"] {
+  opacity: 1;
+  color: #b3261e;
+}

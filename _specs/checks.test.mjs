@@ -24,7 +24,7 @@ function check({ stale = false, missingRepository = false } = {}) {
   }
   return spawnSync('bash', [join(root, '_specs/checks.sh')], {
     encoding: 'utf8',
-    env: { ...process.env, FACTORY_ROOT: root,
+    env: { ...process.env, CHECKS_FAST: '1', FACTORY_ROOT: root,
       TEMPLATE_ROOT: join(root, 'projects/tooling/local-first-app-template') },
   });
 }

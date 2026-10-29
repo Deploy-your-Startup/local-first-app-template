@@ -55,5 +55,5 @@ index.html → src/main.ts → service worker (Hono, /local)
 - The single-owner lock is a hard requirement, not a best effort. Error states
   for contended storage must stay visible and must never pretend a write
   succeeded.
-- Until service-worker caching is proven in the native WebView, offline use is
-  not claimed on any platform.
+- Service-worker caching is proven in the iOS WKWebView (ADR 002); the browser
+  offline and multi-tab behaviours remain later slices.

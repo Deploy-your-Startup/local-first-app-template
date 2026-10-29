@@ -8,7 +8,13 @@ after rendering.
   private hosts, credentials or a specific startup.
 - `tests/render_test.sh` renders a disposable project from the committed
   revision and asserts neutral, complete output. `./make.sh check` also lints,
-  tests, builds and browser-tests that rendered project.
+  tests, builds and browser-tests that rendered project. The rendered project's
+  `test_ios` needs macOS, Xcode and `cloudflared`, so CI stays Linux and browser
+  only.
+- iOS shell values are derived from Copier answers: `web_origin` reaches the
+  Xcode project and `app_bound_domain` follows it. Never commit a tunnel URL, a
+  certificate or a signing team, and never hardcode a machine-specific Xcode
+  path.
 - Render text is templated with the Factory delimiters
   (`§§deploy_your_startup.<variable>§§`). JavaScript template literals and
   framework syntax stay untouched; do not switch to default Jinja braces.

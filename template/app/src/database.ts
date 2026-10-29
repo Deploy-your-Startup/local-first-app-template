@@ -1,7 +1,13 @@
+import {
+  type DatabaseDiagnosticsRequest,
+  type DatabaseDiagnosticsResponse,
+} from "../shared/runtime.ts";
 import { isTaskServiceRequest } from "../shared/tasks.ts";
 
 type DatabaseStatus =
   { type: "database-ready" } | { type: "database-error"; error: string };
+
+const DIAGNOSTICS_TIMEOUT_MS = 5_000;
 
 /**
  * Starts the database worker immediately. The worker owns SQLite for this tab's
@@ -36,5 +42,38 @@ if ("serviceWorker" in navigator) {
     if (!port || !isTaskServiceRequest(event.data)) return;
 
     worker.postMessage(event.data, [port]);
+  });
+}
+
+/**
+ * Asks the database worker which SQLite runtime it actually opened. This is
+ * reported in the visible runtime status instead of being assumed.
+ */
+export function readDatabaseDiagnostics(): Promise<DatabaseDiagnosticsResponse> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timeout = window.setTimeout(() => {
+      channel.port1.close();
+      resolve({
+        type: "database-diagnostics",
+        error: "The database worker did not answer.",
+      });
+    }, DIAGNOSTICS_TIMEOUT_MS);
+
+    channel.port1.addEventListener(
+      "message",
+      ({ data }: MessageEvent<DatabaseDiagnosticsResponse>) => {
+        window.clearTimeout(timeout);
+        channel.port1.close();
+        resolve(data);
+      },
+      { once: true },
+    );
+    channel.port1.start();
+
+    const request: DatabaseDiagnosticsRequest = {
+      type: "database-diagnostics",
+    };
+    worker.postMessage(request, [channel.port2]);
   });
 }

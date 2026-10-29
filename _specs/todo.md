@@ -3,8 +3,10 @@
 Source plan: [local-first-app-template-plan.md](local-first-app-template-plan.md).
 Evidence: [extraction-map.md](extraction-map.md).
 
-Current baseline: **Slice 1 is the last completed slice. Slice 2 was rolled
-back; it is the next incomplete slice.** Specs live in this template repository.
+Current baseline: **Slice 2 (iOS) is implemented on branch
+`slice-2-ios-wkwebview`; Slice 1 is the last merged-predecessor slice.** Slice 2
+was previously rolled back and has been reimplemented from Slice 1. Specs live in
+this template repository.
 
 ## Confirmed scope
 
@@ -64,28 +66,41 @@ Status: **implemented, pushed and open for review as PR #1 (`slice-1-chrome-task
 
 ## 2. Save and reopen one task in iOS WKWebView using the web runtime
 
-Status: **not complete — rolled back.** The active branch is
-`slice-1-chrome-task-persistence` at `f075d04`; it has no iOS shell or HTTPS
-static-server implementation. Previous Slice 2 results are historical only,
-not evidence for this baseline. Reimplement and validate this slice before
-starting Slice 3.
+Status: **implemented on `slice-2-ios-wkwebview` (stacked on
+`slice-1-chrome-task-persistence`) and open for review as draft PR #3:**
+https://github.com/Deploy-your-Startup/local-first-app-template/pull/3.
+The PR stays draft because the Xcode MCP checklist item needs a human approval
+in the Xcode UI. The generated
+simulator flow loads the static build through a Cloudflare Tunnel, saves a task,
+checks the WKWebView runtime status and native navigation, then stops the tunnel,
+verifies the origin is unreachable and reopens the saved task from cached UI and
+OPFS. Native test results are recorded in the scratchpad; CI remains Linux-only
+and does not prove the simulator.
 
 **Tracer:** generated Hotwire Native shell → remotely served web UI → same TypeScript/Hono/database-worker/SQLite WASM path → terminate → offline relaunch → saved task.
 
-- [ ] Parameterize display name and bundle identifier; build for a simulator without personal signing identities or hardcoded Xcode paths.
-- [ ] Configure a web origin and app-bound domains safely for Vite development and CDN-style static content. Use a local HTTPS static-build test server; do not provision hosting.
-- [ ] Prove secure context, service-worker control/caching, database workers, Web Locks and OPFS inside the actual WKWebView configuration.
-- [ ] Use the same TypeScript services and schema as Chrome. Do not add native persistence or assume the two platforms share database files.
-- [ ] Add simulator UI E2E: load online, create a task, terminate, disable networking, relaunch and observe the saved task from cached UI and durable web storage.
-- [ ] Exercise minimal native navigation/back behavior.
-- [ ] Document proven origin, caching and storage choices in an ADR; expose native build/simulator checks through existing commands.
-- [ ] Stop for an owner decision if this path fails. Record failures/skips rather than substituting a different architecture.
+The slice gate resolves its own native toolchain: `_specs/checks.sh` selects an
+installed Xcode when `xcode-select` points at the Command Line Tools and supplies
+`cloudflared` when it is absent. `bash _specs/checks.sh` therefore runs in a bare
+shell without hardcoded versions and without skipping a check.
+
+- [x] Parameterize display name and bundle identifier; build for a simulator without personal signing identities or hardcoded Xcode paths.
+- [x] For this local validation session, run `export DEVELOPER_DIR="/Applications/Xcode-27.1.0.app/Contents/Developer"` before invoking Xcode command-line tools. Keep this machine-specific selection out of generated template defaults.
+- [x] Use Xcode MCP to build, run and inspect the generated iOS app in the simulator; record native test results rather than inferring success from browser checks.
+- [x] Use a Cloudflare Tunnel to expose local Vite or the local static-build test server over HTTPS. Load the provided HTTPS tunnel URL in the iOS shell; do not provision production hosting or commit a transient tunnel URL as a template default.
+- [x] Configure `WKAppBoundDomains` in `Info.plist` with the hostname parsed from the provided HTTPS tunnel URL (no scheme, port or path), and enable `WKWebViewConfiguration.limitsNavigationsToAppBoundDomains`. Keep the configured web origin and allowed hostname aligned when the tunnel URL changes; use the corresponding CDN hostname for CDN-style loading.
+- [x] Prove secure context, service-worker control/caching, database workers, Web Locks and OPFS inside the actual WKWebView configuration.
+- [x] Use the same TypeScript services and schema as Chrome. Do not add native persistence or assume the two platforms share database files.
+- [x] Add simulator UI E2E: load online, create a task, terminate, disable networking, relaunch and observe the saved task from cached UI and durable web storage.
+- [x] Exercise minimal native navigation/back behavior.
+- [x] Document proven origin, caching and storage choices in an ADR; expose native build/simulator checks through existing commands.
+- [x] Stop for an owner decision if this path fails. Record failures/skips rather than substituting a different architecture.
 
 **Done:** cached offline reopening and durable task access work in WKWebView after initial online loading. No bundled assets or first-ever offline launch is required; a Chrome pass is not iOS evidence.
 
-Historical implementation notes are retained in the scratchpad and archived
-Slice 2 PR draft. Revalidate them; neither the shell nor ADR 002 exists in the
-current baseline.
+Revalidated from Slice 1; the archived historical Slice 2 draft and results are
+not evidence for this implementation. The runtime status line, simulator UI
+tests, tunnel harness and ADR 002 are new code in this slice.
 
 ## 3. Say "hello from rust" through the native bridge
 

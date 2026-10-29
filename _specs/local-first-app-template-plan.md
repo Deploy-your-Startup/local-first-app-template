@@ -72,6 +72,16 @@ copy the application's Git history into the template by default.
 2. Demonstrate a local write, reload and offline read using real persistence.
 3. Load the same web UI in Hotwire Native from a configurable HTTPS origin,
    using Vite in development and a local static-build server for CDN-like tests.
+   For local iOS development, expose that server through a Cloudflare Tunnel
+   and load the provided HTTPS tunnel URL. Set `WKAppBoundDomains` in
+   `Info.plist` to that URL's hostname only (no scheme, port or path), and enable
+   `WKWebViewConfiguration.limitsNavigationsToAppBoundDomains`. Update both the
+   web origin and allowed hostname when the tunnel URL changes; do not commit
+   transient tunnel URLs as template defaults. For this local validation session,
+   run `export DEVELOPER_DIR="/Applications/Xcode-27.1.0.app/Contents/Developer"`
+   before invoking Xcode command-line tools; do not hardcode this machine-specific
+   path in generated templates. Use Xcode MCP to build, run and inspect the
+   generated app in the simulator and obtain native test results.
    Prove app-bound-domain configuration, secure context, service-worker control,
    database workers, Web Locks and SQLite WASM/OPFS in actual iOS WKWebView.
 4. After an initial online load, create a task, terminate the app, disable

@@ -41,3 +41,6 @@ jobs:
       - name: Test the generated application in Chrome
         working-directory: ${{ runner.temp }}/generated
         run: ./make.sh test_e2e
+      # The iOS simulator flow needs macOS, Xcode and cloudflared. It runs
+      # locally through the rendered project's ./make.sh test_ios and is
+      # reported as a local result, not as CI evidence.
