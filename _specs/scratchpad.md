@@ -332,5 +332,15 @@ app-bound domains) was revalidated here.
 - Nothing was mocked, skipped or weakened: the real tunnel, simulator,
   XCUITest, Chrome E2E and integration suites still run, and a missing tool
   still fails the gate.
-- Re-ran the bare gate afterwards (`bash _specs/checks.sh`) to prove the fix.
+- Re-ran the bare gate afterwards (`env -u DEVELOPER_DIR bash _specs/checks.sh`,
+  with no `cloudflared` on `PATH`): exit 0 — render checks twice, 17/17
+  integration, 5/5 dev + 5/5 static Chrome E2E, iOS `** BUILD SUCCEEDED **`,
+  `OnlineFlowTests` passed (34.4 s), tunnel origin verified unreachable,
+  `OfflineRelaunchTests` passed (10.2 s). `_specs/checks.test.mjs` +
+  `_specs/run-loop.test.mjs` → 6/6.
+- Pushed `43b6dee` and refreshed the PR #3 body from `_specs/pr/slice-2.md`.
+  GitHub Actions run `40918012764` (`generated-project`, Ubuntu, Node.js 24)
+  passed render, lint, integration, build and Chrome E2E on that commit.
+  Slice 2 stays draft because the Xcode MCP checklist item still needs the
+  human approval in Xcode.
 

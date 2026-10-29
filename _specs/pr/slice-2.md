@@ -75,6 +75,11 @@ Xcode 27.1 / iOS 27.1 simulator and a current `cloudflared`:
 | Spec harness tests | `node --test _specs/checks.test.mjs _specs/run-loop.test.mjs` | **6/6 pass** |
 | Full slice gate | `bash _specs/checks.sh` (bare shell) | pass end to end |
 
+GitHub Actions run
+[`40918012764`](https://github.com/Deploy-your-Startup/local-first-app-template/actions/runs/40918012764)
+passed `generated-project` (render, lint, integration, build, Chrome E2E) on
+`43b6dee`.
+
 The gate re-resolves its native prerequisites on every run: it exports
 `DEVELOPER_DIR` from an installed Xcode when `xcode-select` points at the
 Command Line Tools, and re-executes under `nix shell nixpkgs#cloudflared` when
