@@ -1,0 +1,14 @@
+[tools]
+node = "24"
+
+[tasks."template:lint"]
+run = "./make.sh lint"
+
+[tasks."template:test"]
+run = "./make.sh test"
+
+[tasks."template:check"]
+run = "./make.sh check"
+
+[tasks.check]
+run = "./make.sh check"

@@ -1,0 +1,26 @@
+[tools]
+node = "24"
+
+[tasks.setup]
+run = "./make.sh setup_local"
+
+[tasks.dev]
+run = "./make.sh run_dev"
+
+[tasks.build]
+run = "./make.sh build"
+
+[tasks.format]
+run = "./make.sh format"
+
+[tasks.lint]
+run = "./make.sh lint"
+
+[tasks.test]
+run = "./make.sh test"
+
+[tasks."test:e2e"]
+run = "./make.sh test_e2e"
+
+[tasks.check]
+run = "./make.sh check"

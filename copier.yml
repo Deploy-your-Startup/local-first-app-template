@@ -1,0 +1,34 @@
+_min_copier_version: "9.18.2"
+_subdirectory: template
+# Render every template file. The application embeds TypeScript, service-worker
+# and browser code, so the Factory's delimiters are used instead of Jinja's
+# default double braces. Binary assets (the SQLite WASM runtime) are copied
+# byte-for-byte by Copier.
+_templates_suffix: ""
+_envops:
+  variable_start_string: "§§deploy_your_startup."
+  variable_end_string: "§§"
+  block_start_string: "§§%"
+  block_end_string: "%§§"
+  comment_start_string: "§§#"
+  comment_end_string: "#§§"
+  keep_trailing_newline: true
+_exclude:
+  - .git
+  - copier.yml
+  - TEMPLATE.md
+  - "**/node_modules"
+  - "**/dist"
+  - "**/playwright-report"
+  - "**/test-results"
+  - "**/.DS_Store"
+
+project_name:
+  type: str
+  help: Project name in lowercase kebab-case, also used for local storage names
+  default: my-local-first-app
+
+app_title:
+  type: str
+  help: Human readable application title shown in the browser and the page header
+  default: "§§deploy_your_startup.project_name | replace('-', ' ') | title§§"
