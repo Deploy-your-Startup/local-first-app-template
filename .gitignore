@@ -1,0 +1,3 @@
+# Build and check outputs of a rendered project.
+.render-check/
+.DS_Store
