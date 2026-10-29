@@ -14,9 +14,9 @@
 set -euo pipefail
 
 specs_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="$specs_root/$(basename "${BASH_SOURCE[0]}")"
 TEMPLATE="${TEMPLATE_ROOT:-$(cd "$specs_root/.." && pwd)}"
 factory_root="${FACTORY_ROOT:-$(cd "$TEMPLATE/../../.." && pwd)}"
-cd "$specs_root/.."
 
 SOURCE="$factory_root/projects/startups/malleable-mail/app-src"
 APP="$SOURCE/app"
@@ -28,6 +28,33 @@ pass() { printf 'ok   %s\n' "$*"; }
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# --- prerequisites --------------------------------------------------------
+# The gate runs the real native flow, so it needs a full Xcode and cloudflared.
+# Resolve them here instead of relying on the caller's shell, which may select
+# the Command Line Tools or lack cloudflared. Nothing is skipped: if the tools
+# cannot be resolved the run fails with an actionable message.
+if [ "${CHECKS_FAST:-0}" != "1" ]; then
+  if ! have cloudflared && have nix && [ -z "${CHECKS_REEXEC:-}" ]; then
+    export CHECKS_REEXEC=1
+    exec nix shell nixpkgs#cloudflared -c bash "$script_path" "$@"
+  fi
+
+  # `xcode-select` may point at the Command Line Tools, where xcodebuild and
+  # simctl are unavailable. Pick an installed Xcode without hardcoding a
+  # version or a personal path.
+  if [ "$(uname -s)" = "Darwin" ] && ! xcodebuild -version >/dev/null 2>&1; then
+    for candidate in /Applications/Xcode*.app/Contents/Developer; do
+      [ -d "$candidate" ] || continue
+      if DEVELOPER_DIR="$candidate" xcodebuild -version >/dev/null 2>&1; then
+        export DEVELOPER_DIR="$candidate"
+        break
+      fi
+    done
+  fi
+fi
+
+cd "$specs_root/.."
 
 echo "== slice 0: extraction boundary =="
 
@@ -303,8 +330,10 @@ else
     fail "slice 2 requires macOS with Xcode to run the simulator checks"
   have xcrun || fail "xcrun is required for the iOS simulator checks"
   have xcodebuild || fail "xcodebuild is required for the iOS simulator checks"
+  xcodebuild -version >/dev/null 2>&1 ||
+    fail "xcodebuild cannot run; install Xcode and select it with xcode-select or DEVELOPER_DIR (the Command Line Tools are not enough)"
   have cloudflared ||
-    fail "cloudflared is required to serve the simulator origin over HTTPS"
+    fail "cloudflared is required to serve the simulator origin over HTTPS (install it, or provide nix so the gate can supply it)"
   xcrun simctl list runtimes 2>/dev/null | grep -q "iOS" ||
     fail "no iOS simulator runtime is installed"
 

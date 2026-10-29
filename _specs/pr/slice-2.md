@@ -60,7 +60,7 @@ _specs/*                           checks, todo, scratchpad, this PR body
 ## Checks
 
 Local results on a rendered project (`.render-check/generated`), macOS 26 with
-Xcode 27.1 / iOS 27.1 simulator and `cloudflared` 2026.10.0:
+Xcode 27.1 / iOS 27.1 simulator and a current `cloudflared`:
 
 | Check | Command | Result |
 |---|---|---|
@@ -73,7 +73,15 @@ Xcode 27.1 / iOS 27.1 simulator and `cloudflared` 2026.10.0:
 | iOS online flow | `./make.sh test_ios` | **passed** (29.0 s) |
 | iOS offline relaunch (origin verified unreachable) | `./make.sh test_ios` | **passed** (12.3 s) |
 | Spec harness tests | `node --test _specs/checks.test.mjs _specs/run-loop.test.mjs` | **6/6 pass** |
-| Full slice gate | `_specs/checks.sh` | pass end to end |
+| Full slice gate | `bash _specs/checks.sh` (bare shell) | pass end to end |
+
+The gate re-resolves its native prerequisites on every run: it exports
+`DEVELOPER_DIR` from an installed Xcode when `xcode-select` points at the
+Command Line Tools, and re-executes under `nix shell nixpkgs#cloudflared` when
+`cloudflared` is not on `PATH`. This fixed the first loop validation, which
+failed only because the gate inherited a shell with neither tool. No assertion
+or scenario was removed or skipped; the native section now fails early with
+guidance when `xcodebuild -version` cannot run.
 
 CI stays Linux and runs render, lint, integration, build and Chrome E2E only.
 The simulator result above is local evidence, not CI evidence.
@@ -95,14 +103,14 @@ The simulator result above is local evidence, not CI evidence.
 ## How to validate
 
 ```sh
-# template repository, on macOS with Xcode and cloudflared
-export DEVELOPER_DIR="/Applications/Xcode-27.1.app/Contents/Developer"  # if needed
+# template repository, on macOS with Xcode and either cloudflared or nix
 ./make.sh test
 ./make.sh check
 (cd .render-check/generated && ./make.sh build_ios && ./make.sh test_ios)
 
-# full slice gate, including rendering and both platform checks
-_specs/checks.sh
+# full slice gate: renders, runs Chrome E2E and the simulator flow, and
+# resolves Xcode/cloudflared itself
+bash _specs/checks.sh
 ```
 
 The tunnel URL is transient, is written to the gitignored

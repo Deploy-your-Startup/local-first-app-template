@@ -79,6 +79,11 @@ and does not prove the simulator.
 
 **Tracer:** generated Hotwire Native shell → remotely served web UI → same TypeScript/Hono/database-worker/SQLite WASM path → terminate → offline relaunch → saved task.
 
+The slice gate resolves its own native toolchain: `_specs/checks.sh` selects an
+installed Xcode when `xcode-select` points at the Command Line Tools and supplies
+`cloudflared` when it is absent. `bash _specs/checks.sh` therefore runs in a bare
+shell without hardcoded versions and without skipping a check.
+
 - [x] Parameterize display name and bundle identifier; build for a simulator without personal signing identities or hardcoded Xcode paths.
 - [x] For this local validation session, run `export DEVELOPER_DIR="/Applications/Xcode-27.1.0.app/Contents/Developer"` before invoking Xcode command-line tools. Keep this machine-specific selection out of generated template defaults.
 - [x] Use Xcode MCP to build, run and inspect the generated iOS app in the simulator; record native test results rather than inferring success from browser checks.

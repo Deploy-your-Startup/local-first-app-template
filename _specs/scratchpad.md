@@ -36,15 +36,17 @@ purpose: read it first, update it last.
 - Template and browser checks: Node.js 24 (this machine runs 23.11 and warns
   about ESLint engine ranges; all checks still pass), npm, Copier ≥ 9.18.2,
   Chromium for Playwright.
-- Slice 2 native checks: macOS, Xcode 27.1 with an iOS 27.1 simulator runtime,
-  and `cloudflared` on `PATH`.
-- `DEVELOPER_DIR` must point at the full Xcode for this session
-  (`/Applications/Xcode-27.1.0.app/Contents/Developer`); `xcode-select` points
-  at Command Line Tools. Keep that machine-specific selection out of the
-  template.
-- `cloudflared` is not installed globally here; the validation run used
-  `nix shell nixpkgs#cloudflared -c …` around `./make.sh test_ios` and
-  `_specs/checks.sh`.
+- Slice 2 native checks: macOS with a full Xcode that has an iOS simulator
+  runtime, plus `cloudflared`. `_specs/checks.sh` now resolves both itself:
+  when `xcodebuild` does not work under the current `xcode-select`, it exports
+  `DEVELOPER_DIR` from the first installed Xcode whose `xcodebuild -version`
+  succeeds; when `cloudflared` is missing it re-executes under
+  `nix shell nixpkgs#cloudflared` (guarded against recursion). No Xcode version
+  or personal path is hardcoded, and nothing is skipped — without either tool
+  the gate fails with an actionable message.
+- `xcode-select` on this machine points at the Command Line Tools, which is why
+  the gate must select a full Xcode. The generated project never assumes this;
+  it documents `cloudflared` and Xcode as prerequisites.
 - `gh` is not on `PATH`; it runs through `nix shell nixpkgs#gh -c gh …`.
 - Xcode MCP is configured but requires a human approval in the Xcode UI
   (`xcrun mcp-server approve` needs sudo). It was not available in this
@@ -307,3 +309,28 @@ app-bound domains) was revalidated here.
   in Xcode (`xcrun mcp-server approve` requires sudo), so MCP build/run/inspect
   remains unchecked. CLI Xcode build and simulator tests are the recorded
   native evidence.
+
+### 2026-10-29 — slice 2 validation gate: toolchain resolution
+
+- The loop's bare `bash _specs/checks.sh` failed at the last slice 2 structural
+  check with `FAIL cloudflared is required to serve the simulator origin over
+  HTTPS`. The gate inherited a shell without `cloudflared`, and `xcode-select`
+  on this machine points at the Command Line Tools, so `xcodebuild` would have
+  failed next. No product code was wrong.
+- Confirmed by running the same gate with the tools supplied externally
+  (`DEVELOPER_DIR=… nix shell nixpkgs#cloudflared -c bash _specs/checks.sh`):
+  exit 0. 17/17 integration, 5/5 dev + 5/5 static Chrome E2E, iOS
+  `** BUILD SUCCEEDED **`, `OnlineFlowTests` passed, tunnel origin verified
+  unreachable, `OfflineRelaunchTests` passed.
+- Fix in `_specs/checks.sh` only (plus evidence docs): resolve the toolchain at
+  startup. Re-exec under `nix shell nixpkgs#cloudflared` when `cloudflared` is
+  absent and `nix` exists (`CHECKS_REEXEC` guards recursion); export
+  `DEVELOPER_DIR` from the first `/Applications/Xcode*.app` whose
+  `xcodebuild -version` succeeds when the current selection is Command Line
+  Tools. The native section now also asserts `xcodebuild -version` runs, so a
+  CLT-only host fails immediately with guidance.
+- Nothing was mocked, skipped or weakened: the real tunnel, simulator,
+  XCUITest, Chrome E2E and integration suites still run, and a missing tool
+  still fails the gate.
+- Re-ran the bare gate afterwards (`bash _specs/checks.sh`) to prove the fix.
+
