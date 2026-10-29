@@ -299,6 +299,10 @@ app-bound domains) was revalidated here.
   - Fixed during the gate run: example tunnel URLs in fixtures tripped the
     "no transient tunnel URL" check (now `.example.com`), and two structural
     greps targeted the rendered file instead of the templated one.
+- Published: branch pushed, draft PR #3 opened against
+  `slice-1-chrome-task-persistence`. GitHub Actions run `40916434815` (Ubuntu,
+  Node.js 24) passed `generated-project` in 1m1s: render, lint, integration,
+  build and Chrome E2E. The simulator result is local only.
 - Xcode MCP: the workspace-open request is recorded but needs a human approval
   in Xcode (`xcrun mcp-server approve` requires sudo), so MCP build/run/inspect
   remains unchecked. CLI Xcode build and simulator tests are the recorded
