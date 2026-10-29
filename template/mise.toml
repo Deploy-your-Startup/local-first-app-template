@@ -22,5 +22,11 @@ run = "./make.sh test"
 [tasks."test:e2e"]
 run = "./make.sh test_e2e"
 
+[tasks."ios:build"]
+run = "./make.sh build_ios"
+
+[tasks."ios:test"]
+run = "./make.sh test_ios"
+
 [tasks.check]
 run = "./make.sh check"

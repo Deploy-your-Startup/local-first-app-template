@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { resolve } from "node:path";
 
 // OPFS requires a cross-origin isolated context. Keep these headers identical
 // for development and for the static build served by `vite preview`.
@@ -20,6 +21,14 @@ export default defineConfig({
     port: 4173,
     strictPort: true,
     headers: crossOriginIsolationHeaders,
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, "index.html"),
+        about: resolve(import.meta.dirname, "about.html"),
+      },
+    },
   },
   plugins: [
     VitePWA({

@@ -98,3 +98,14 @@ body {
 .status {
   font-size: 0.9rem;
 }
+
+.app-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(128 128 128 / 40%);
+  font-size: 0.9rem;
+}
+
+.app-footer a {
+  color: inherit;
+}

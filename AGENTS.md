@@ -8,7 +8,7 @@ after rendering.
   private hosts, credentials or a specific startup.
 - `tests/render_test.sh` renders a disposable project from the committed
   revision and asserts neutral, complete output. `./make.sh check` also lints,
-  tests, builds and browser-tests that rendered project.
+  tests, builds, browser-tests and simulator-tests that rendered project.
 - Render text is templated with the Factory delimiters
   (`§§deploy_your_startup.<variable>§§`). JavaScript template literals and
   framework syntax stay untouched; do not switch to default Jinja braces.

@@ -27,6 +27,7 @@ lint)
     (cd app && npx tsc --noEmit)
     (cd app && npx tsc -p tsconfig.worker.json --noEmit)
     (cd app && npx tsc -p tsconfig.node.json --noEmit)
+    bash -n native/ios/scripts/*.sh
     ;;
 build)
     (cd app && npm run build)
@@ -37,14 +38,22 @@ test)
 test_e2e)
     (cd app && npm run test:e2e)
     ;;
+build_ios)
+    exec bash native/ios/scripts/build.sh
+    ;;
+test_ios)
+    exec bash native/ios/scripts/test.sh
+    ;;
 check)
     "$project_root/make.sh" lint
     "$project_root/make.sh" test
     "$project_root/make.sh" build
     "$project_root/make.sh" test_e2e
+    "$project_root/make.sh" build_ios
+    "$project_root/make.sh" test_ios
     ;;
 *)
-    echo "Usage: $0 {setup_local|run_dev|format|lint|build|test|test_e2e|check}" >&2
+    echo "Usage: $0 {setup_local|run_dev|format|lint|build|test|test_e2e|build_ios|test_ios|check}" >&2
     exit 2
     ;;
 esac

@@ -2,15 +2,19 @@
 
 This application stores its data in the browser. A service worker routes local
 requests to a database worker that owns SQLite WASM persisted in OPFS. There is
-no account, no hosted application backend and no synchronization.
+no account, no hosted application backend and no synchronization. An iOS
+Hotwire Native shell loads the same web application from an HTTPS origin.
 
 ## Prerequisites
 
 - Node.js 24 with npm (`mise.toml` pins it; any Node.js 24 installation works)
 - Google Chrome, or Playwright's Chromium for the browser checks
+- Xcode with an iOS simulator runtime for the native checks
+  (`/Applications/Xcode.app`, selected with `xcode-select`, or `DEVELOPER_DIR`)
+- `openssl` and `curl` for the local HTTPS test server
 
 No database server, container runtime, cloud account or signing identity is
-needed.
+needed. Native checks run on the simulator only.
 
 ## Commands
 
@@ -18,15 +22,22 @@ needed.
 ./make.sh setup_local   # install dependencies and the Playwright browser
 ./make.sh run_dev       # Vite development server on http://127.0.0.1:5173
 ./make.sh format        # write formatting
-./make.sh lint          # formatting, ESLint and TypeScript checks (read-only)
+./make.sh lint          # formatting, ESLint, TypeScript and shell syntax checks
 ./make.sh build         # type-check and build the static application
 ./make.sh test          # integration tests over the real services and SQLite
-./make.sh test_e2e      # Chrome E2E against Vite dev and the static build
-./make.sh check         # lint, test, build and browser checks together
+./make.sh test_e2e      # Chrome E2E: dev, static preview and HTTPS static server
+./make.sh build_ios     # build the Hotwire Native shell for the simulator
+./make.sh test_ios      # simulator UI test: online load, offline relaunch
+./make.sh check         # all of the above
 ```
 
 The same commands are available as `mise run <task>` (`setup`, `dev`, `format`,
-`lint`, `test`, `test:e2e`, `check`).
+`lint`, `test`, `test:e2e`, `ios:build`, `ios:test`, `check`).
+
+The iOS checks start `app/scripts/serve-static-https.mjs` on
+`https://localhost:8443`, install its throwaway CA into the chosen simulator and
+run `xcodebuild test`. They do not provision hosting. Select a simulator with
+`IOS_SIMULATOR_UDID` or accept the first available iPhone.
 
 ## How a request reaches storage
 
@@ -45,15 +56,26 @@ falling back to volatile storage.
 
 ## Data and platform notes
 
-- Data lives in this browser profile's OPFS for this origin. Chrome and iOS
-  WKWebView use separate stores; nothing is shared between them.
-- Clearing site data deletes the tasks. There is no backup or export yet.
-- Chrome is the tested browser. Other browsers, iOS, offline reopening and
-  multi-tab recovery are not implemented yet.
+- Data lives in this browser or WebView profile's OPFS for the loaded origin.
+  Chrome and iOS WKWebView use separate stores; nothing is shared between them.
+- Clearing site data deletes the tasks. There is no backup, export or
+  synchronization.
+- Chrome on desktop and iOS WKWebView in the simulator are the tested platforms.
+  Safari, Firefox, physical iOS devices, hosting and app-store distribution are
+  not tested.
+- Offline reopening is tested on Chrome after a production build and in the iOS
+  simulator after the first online load. The simulator check makes the app origin
+  unreachable; it does not switch the whole host network off.
+- App-bound domains are listed in `native/ios/LocalFirstApp/Info.plist` and
+  enabled. WKWebView only exposes service workers to app-bound domains. Add the
+  CDN host to `WKAppBoundDomains` when hosting exists; keep `localhost` only for
+  local development.
 
 ## Documentation
 
 - `docs/architecture/001-local-web-runtime.md` — runtime boundaries and the
   decisions behind them.
+- `docs/architecture/002-ios-webview-runtime.md` — the iOS shell, origin,
+  app-bound domains and simulator checks.
 - `AGENTS.md` — repository rules for human and automated contributors.
 - `app/THIRD-PARTY-NOTICES.md` — bundled third-party components.

@@ -1,7 +1,8 @@
 # Repository rules
 
 Local-first task application. The browser owns the data; there is no hosted
-application backend.
+application backend. An iOS shell loads the same web runtime from a remote
+origin.
 
 ## Commands
 
@@ -10,15 +11,17 @@ Use `./make.sh` (or the equivalent `mise` task) for everything:
 - `./make.sh setup_local` — install dependencies and the Playwright browser
 - `./make.sh run_dev` — Vite development server
 - `./make.sh format` — write formatting
-- `./make.sh lint` — read-only formatting, ESLint and TypeScript checks
+- `./make.sh lint` — read-only formatting, ESLint, TypeScript and shell checks
 - `./make.sh build` — type-check and build the static application
 - `./make.sh test` — integration tests over the real services and SQLite
-- `./make.sh test_e2e` — Chrome E2E against the dev server and static build
+- `./make.sh test_e2e` — Chrome E2E against dev, the static build and HTTPS
+- `./make.sh build_ios` — build the Hotwire Native shell for the simulator
+- `./make.sh test_ios` — simulator UI checks against the HTTPS static build
 - `./make.sh check` — all of the above
 
 Run lint and the relevant tests before claiming work is done. A passing
-development run is not evidence for the static build and a Chrome pass is not
-evidence for iOS.
+development run is not evidence for the static build, a Chrome pass is not
+evidence for iOS, and a simulator pass is not evidence for a physical device.
 
 ## Boundaries
 
@@ -34,9 +37,13 @@ evidence for iOS.
   the database worker and the integration tests.
 - OPFS requires a cross-origin isolated context. Keep the
   `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers on the
-  dev and preview servers.
+  dev, preview and HTTPS test servers.
 - SQLite WASM lives in `app/public/sqlite/` with its upstream notice. Do not
   bundle or edit it.
+- The iOS shell loads the web app from the `web_origin` HTTPS URL. Do not bundle
+  web assets, add a native database, or make offline first launch a requirement.
+- Keep local certificates in `app/.local-https/` (gitignored). Never commit
+  certificates, signing identities or team identifiers.
 
 ## Tests
 
@@ -45,6 +52,8 @@ evidence for iOS.
   this repository's own code to make a check pass.
 - `app/tests/integration/` runs on `node --test` against `node:sqlite` through
   the same Drizzle service code the browser uses.
-- `app/tests/e2e/` runs Playwright against a real Chrome context, once against
-  the Vite dev server and once against the static build.
+- `app/tests/e2e/` runs Playwright against a real Chrome context: the Vite dev
+  server, the static build and the local HTTPS server.
+- `native/ios/LocalFirstAppUITests/` runs XCUITest in the simulator. It proves
+  the actual WKWebView runtime, offline relaunch and native back navigation.
 - Capabilities that are not implemented must not be described as supported.

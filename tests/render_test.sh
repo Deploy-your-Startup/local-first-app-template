@@ -65,7 +65,15 @@ for file in \
   app/public/sqlite/3.54.1/sqlite3.wasm \
   app/public/sqlite/3.54.1/sqlite3.mjs \
   app/THIRD-PARTY-NOTICES.md \
-  docs/architecture/001-local-web-runtime.md; do
+  native/ios/LocalFirstApp.xcodeproj/project.pbxproj \
+  native/ios/LocalFirstApp/AppDelegate.swift \
+  native/ios/LocalFirstApp/SceneDelegate.swift \
+  native/ios/LocalFirstApp/Info.plist \
+  native/ios/LocalFirstAppUITests/LocalFirstAppUITests.swift \
+  native/ios/scripts/build.sh \
+  native/ios/scripts/test.sh \
+  docs/architecture/001-local-web-runtime.md \
+  docs/architecture/002-ios-webview-runtime.md; do
   [ -s "$generated/$file" ] || fail "generated project is missing $file"
 done
 
@@ -76,6 +84,12 @@ if [ -e "$generated/app/node_modules" ]; then
 fi
 if [ -e "$generated/app/dist" ]; then
   fail "generated project contains a build output"
+fi
+if [ -e "$generated/app/.local-https" ]; then
+  fail "generated project contains local development certificates"
+fi
+if [ -e "$generated/native/ios/build" ]; then
+  fail "generated project contains native build output"
 fi
 bash -n "$generated/make.sh" || fail "generated make.sh is not valid bash"
 
@@ -105,6 +119,17 @@ grep -qF "MIT License" "$generated/LICENSE" ||
   fail "the generated project does not carry the MIT license"
 pass "project_name and the derived app_title are rendered"
 
+# --- iOS shell identity and origin ---------------------------------------
+grep -qF "com.example.$project_name" \
+  "$generated/native/ios/LocalFirstApp.xcodeproj/project.pbxproj" ||
+  fail "the iOS bundle identifier was not rendered from project_name"
+grep -qF "<string>$expected_title</string>" "$generated/native/ios/LocalFirstApp/Info.plist" ||
+  fail "the iOS display name was not rendered from app_title"
+grep -qF "<string>https://localhost:8443</string>" \
+  "$generated/native/ios/LocalFirstApp/Info.plist" ||
+  fail "the default web origin was not rendered into the iOS shell"
+pass "iOS shell carries the rendered display name, bundle identifier and origin"
+
 # --- neutral content ------------------------------------------------------
 # The template must not leak the source application, owner infrastructure or
 # machine settings into generated projects.
@@ -113,7 +138,6 @@ for pattern in \
   "Malleable Mail" \
   "GreenMail" \
   "nodemailer" \
-  "hotwire-native" \
   "ts.net" \
   "macbook-pro"; do
   if grep -rIil -- "$pattern" "$generated" >/dev/null 2>&1; then

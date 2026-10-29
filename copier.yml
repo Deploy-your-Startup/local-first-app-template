@@ -32,3 +32,15 @@ app_title:
   type: str
   help: Human readable application title shown in the browser and the page header
   default: "§§deploy_your_startup.project_name | replace('-', ' ') | title§§"
+
+ios_bundle_identifier:
+  type: str
+  help: iOS bundle identifier for the generated Hotwire Native shell
+  default: "com.example.§§deploy_your_startup.project_name§§"
+
+web_origin:
+  type: str
+  help: >-
+    HTTPS origin the iOS shell loads. Use https://localhost:8443 for the local
+    static test server, or the CDN origin once hosting exists.
+  default: "https://localhost:8443"

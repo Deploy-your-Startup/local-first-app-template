@@ -13,7 +13,10 @@
     "test": "node --test tests/integration/*.test.ts",
     "test:e2e:dev": "playwright test",
     "test:e2e:static": "E2E_SERVER=static playwright test",
-    "test:e2e": "npm run test:e2e:dev && npm run build && npm run test:e2e:static"
+    "test:e2e:https": "npm run build && E2E_SERVER=https playwright test",
+    "test:e2e": "npm run test:e2e:dev && npm run build && npm run test:e2e:static && E2E_SERVER=https playwright test",
+    "cert:dev": "bash scripts/make-dev-cert.sh",
+    "serve:https": "bash scripts/make-dev-cert.sh && node scripts/serve-static-https.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

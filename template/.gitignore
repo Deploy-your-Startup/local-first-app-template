@@ -4,3 +4,8 @@ test-results/
 playwright-report/
 *.local
 .DS_Store
+.local-https/
+*.srl
+native/ios/build/
+native/ios/DerivedData/
+*.xcresult

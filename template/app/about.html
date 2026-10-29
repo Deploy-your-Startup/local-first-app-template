@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>About · §§deploy_your_startup.app_title§§</title>
+    <script type="module" src="/src/about.ts"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>About §§deploy_your_startup.app_title§§</h1>
+      <p class="app-subtitle">Tasks stored in this browser.</p>
+    </header>
+    <main id="app">
+      <p>
+        This application keeps its data in this browser only. It has no account,
+        no application backend and no synchronization.
+      </p>
+      <p class="status" id="runtime" role="status">Checking the web runtime…</p>
+    </main>
+    <footer class="app-footer">
+      <a href="/" data-turbo="false">Back to tasks</a>
+    </footer>
+  </body>
+</html>
