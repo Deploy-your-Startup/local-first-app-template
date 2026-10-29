@@ -15,8 +15,11 @@ purpose: read it first, update it last.
   https://github.com/Deploy-your-Startup/local-first-app-template/pull/1.
   Not merged.
 - Slice **2 (iOS)** is reimplemented from Slice 1 on branch
-  `slice-2-ios-wkwebview`, stacked on `slice-1-chrome-task-persistence`. The
-  rolled-back attempt and its closed PR #2 are historical only.
+  `slice-2-ios-wkwebview`, stacked on `slice-1-chrome-task-persistence`, and is
+  draft PR #3:
+  https://github.com/Deploy-your-Startup/local-first-app-template/pull/3.
+  It stays draft because the Xcode MCP item needs a human approval in Xcode.
+  The rolled-back attempt and its closed PR #2 are historical only.
 - Next slice after review: **3** — the native Rust greeting. Do not start it
   before Slice 2 is reviewed/merged.
 - Existing template repository at `projects/tooling/local-first-app-template`:
@@ -52,7 +55,8 @@ purpose: read it first, update it last.
 - Template repository: `main` at `5c7afb7`.
   - `slice-1-chrome-task-persistence` → PR #1 to `main` (first implementation
     PR).
-  - `slice-2-ios-wkwebview` → stacked on `slice-1-chrome-task-persistence`.
+  - `slice-2-ios-wkwebview` → draft PR #3, stacked on
+    `slice-1-chrome-task-persistence`.
   - Closed PR #2 (`slice-2-ios-offline-webview`) is historical; do not reuse it.
   - Do not merge or force-push.
 

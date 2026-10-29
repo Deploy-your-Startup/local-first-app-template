@@ -67,7 +67,10 @@ Status: **implemented, pushed and open for review as PR #1 (`slice-1-chrome-task
 ## 2. Save and reopen one task in iOS WKWebView using the web runtime
 
 Status: **implemented on `slice-2-ios-wkwebview` (stacked on
-`slice-1-chrome-task-persistence`) and open for review.** The generated
+`slice-1-chrome-task-persistence`) and open for review as draft PR #3:**
+https://github.com/Deploy-your-Startup/local-first-app-template/pull/3.
+The PR stays draft because the Xcode MCP checklist item needs a human approval
+in the Xcode UI. The generated
 simulator flow loads the static build through a Cloudflare Tunnel, saves a task,
 checks the WKWebView runtime status and native navigation, then stops the tunnel,
 verifies the origin is unreachable and reopens the saved task from cached UI and
