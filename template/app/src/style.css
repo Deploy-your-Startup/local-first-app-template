@@ -1,0 +1,100 @@
+:root {
+  color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 34rem;
+  padding: 2rem 1rem 3rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.app-subtitle {
+  margin: 0.25rem 0 1.5rem;
+  opacity: 0.72;
+}
+
+.task-form {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.task-form label {
+  font-weight: 600;
+}
+
+.task-form input {
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+}
+
+.task-form[aria-busy="true"] input {
+  opacity: 0.7;
+}
+
+.task-form .hint {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.task-form button {
+  font: inherit;
+  justify-self: start;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: #2f6f4f;
+  color: #fff;
+  cursor: pointer;
+}
+
+.task-form button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.error {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid #b3261e;
+  background: rgb(179 38 30 / 12%);
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.task {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgb(128 128 128 / 40%);
+  border-radius: 0.4rem;
+}
+
+.empty,
+.status {
+  opacity: 0.75;
+}
+
+.status {
+  font-size: 0.9rem;
+}

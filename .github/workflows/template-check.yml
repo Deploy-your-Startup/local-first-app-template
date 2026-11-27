@@ -1,0 +1,43 @@
+name: Check generated local-first project
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  generated-project:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Install Copier
+        run: uv tool install copier==9.18.2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: template/app/package-lock.json
+      - name: Render and assert the template output
+        env:
+          RENDER_OUTPUT: ${{ runner.temp }}/generated
+        run: bash tests/render_test.sh
+      - name: Install the generated project
+        working-directory: ${{ runner.temp }}/generated
+        env:
+          PLAYWRIGHT_INSTALL_ARGS: --with-deps chromium
+        run: ./make.sh setup_local
+      - name: Lint the generated project
+        working-directory: ${{ runner.temp }}/generated
+        run: ./make.sh lint
+      - name: Test the generated services and schema
+        working-directory: ${{ runner.temp }}/generated
+        run: ./make.sh test
+      - name: Build the static application
+        working-directory: ${{ runner.temp }}/generated
+        run: ./make.sh build
+      - name: Test the generated application in Chrome
+        working-directory: ${{ runner.temp }}/generated
+        run: ./make.sh test_e2e
